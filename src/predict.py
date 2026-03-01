@@ -1,52 +1,46 @@
+import sys
+from pathlib import Path
 from ultralytics import YOLO
-import argparse
-import os
 
 
-def run_inference(weights, source, conf):
+def main():
+    try:
+        # Model path
+        model_path = Path("best.pt")
 
-    print("🔎 Starting Inference...")
-    print(f"📦 Weights: {weights}")
-    print(f"🎯 Source: {source}")
-    print(f"📊 Confidence Threshold: {conf}")
-    print("-" * 50)
+        if not model_path.exists():
+            print("❌ best.pt not found in root directory.")
+            print("Place best.pt in project root or update path in predict.py")
+            sys.exit(1)
 
-    if not os.path.exists(weights):
-        raise FileNotFoundError(f"❌ Weights file not found: {weights}")
+        # Input source
+        source_path = Path("input.jpg")
 
-    # Load trained model
-    model = YOLO(weights)
+        if not source_path.exists():
+            print("❌ input.jpg not found in root directory.")
+            sys.exit(1)
 
-    # Run prediction
-    results = model.predict(
-        source=source,
-        conf=conf,
-        save=True,
-        show=False,
-        project="outputs",
-        name="predictions",
-        exist_ok=True
-    )
+        # Load trained model
+        model = YOLO(str(model_path))
 
-    print("✅ Inference Completed!")
-    print("📁 Outputs saved in: outputs/predictions/")
+        # Run prediction
+        model.predict(
+            source=str(source_path),
+            imgsz=640,
+            conf=0.25,
+            save=True,
+            project="outputs",
+            name="predictions",
+            exist_ok=True
+        )
+
+        print("\n✅ Prediction completed successfully!")
+        print("📁 Check: outputs/predictions/")
+
+    except Exception as e:
+        print(f"\n❌ Prediction Failed: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description="YOLOv8 Inference Script")
-
-    parser.add_argument("--weights", type=str, required=True,
-                        help="Path to trained weights (best.pt)")
-    parser.add_argument("--source", type=str, required=True,
-                        help="Path to image, video file, or 0 for webcam")
-    parser.add_argument("--conf", type=float, default=0.25,
-                        help="Confidence threshold")
-
-    args = parser.parse_args()
-
-    run_inference(
-        weights=args.weights,
-        source=args.source,
-        conf=args.conf
-    )
+    main()
