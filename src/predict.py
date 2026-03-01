@@ -5,22 +5,21 @@ from ultralytics import YOLO
 
 def main():
     try:
-        # Model path
-        model = YOLO("analysis/best.pt")
+        # 🔥 Correct Model Path
+        model_path = Path("analysis/best.pt")
 
         if not model_path.exists():
-            print("❌ best.pt not found in root directory.")
-            print("Place best.pt in project root or update path in predict.py")
+            print("❌ Model file not found at:", model_path)
             sys.exit(1)
 
-        # Input source
+        # 🔥 Test Image Path (Change if needed)
         source_path = Path("test.jpg")
 
         if not source_path.exists():
-            print("❌ input.jpg not found in root directory.")
+            print("❌ Test image not found:", source_path)
             sys.exit(1)
 
-        # Load trained model
+        # Load model
         model = YOLO(str(model_path))
 
         # Run prediction
