@@ -1,188 +1,211 @@
 import streamlit as st
+import os
+import yaml
+import pandas as pd
+import torch
 from ultralytics import YOLO
 from PIL import Image
-import pandas as pd
-import tempfile
-import os
-import matplotlib.pyplot as plt
-import numpy as np
+import plotly.express as px
 import cv2
+import numpy as np
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as RLImage
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+from reportlab.platypus import Table
+from reportlab.lib.styles import getSampleStyleSheet
 
-st.set_page_config(page_title="YOLOv8 Pro Dashboard", layout="wide")
-st.title("🚀 YOLOv8 Professional Detection Dashboard")
+st.set_page_config(layout="wide", page_title="YOLOv8 Enterprise Dashboard")
 
-# ---------------------------
-# Sidebar Controls
-# ---------------------------
+# -------------------- LOGIN SYSTEM --------------------
 
-st.sidebar.header("⚙️ Settings")
+def load_users():
+    with open("users.yaml", "r") as file:
+        return yaml.safe_load(file)["users"]
 
-model_option = st.sidebar.selectbox(
-    "Select Model",
-    ["yolov8n.pt", "best.pt"]
-)
+def login():
+    st.sidebar.title("🔐 Login")
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type="password")
+    users = load_users()
 
-confidence_threshold = st.sidebar.slider(
-    "Confidence Threshold",
-    0.0, 1.0, 0.25
-)
-
-mode = st.sidebar.radio(
-    "Select Mode",
-    ["Single Image", "Multiple Images", "Video"]
-)
-
-@st.cache_resource
-def load_model(model_name):
-    return YOLO(model_name)
-
-model = load_model(model_option)
-
-# ---------------------------
-# Helper Function
-# ---------------------------
-
-def process_result(result):
-    if result.boxes:
-        names = result.names
-        data = []
-
-        for box in result.boxes:
-            conf = float(box.conf[0])
-            if conf >= confidence_threshold:
-                cls = int(box.cls[0])
-                data.append({
-                    "Object": names[cls],
-                    "Confidence": round(conf, 2)
-                })
-
-        return pd.DataFrame(data)
-    return pd.DataFrame()
-
-# ---------------------------
-# SINGLE IMAGE MODE
-# ---------------------------
-
-if mode == "Single Image":
-    uploaded_file = st.file_uploader("Upload Image", type=["jpg","png","jpeg"])
-
-    if uploaded_file:
-        image = Image.open(uploaded_file)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
-
-        results = model(image)
-        result = results[0]
-
-        annotated = result.plot()
-        st.image(annotated, caption="Detected Image", use_column_width=True)
-
-        df = process_result(result)
-
-        if not df.empty:
-            st.subheader("📊 Detection Table")
-            st.dataframe(df)
-
-            col1, col2 = st.columns(2)
-
-            with col1:
-                st.subheader("📈 Object Count")
-                count_df = df["Object"].value_counts()
-                fig1, ax1 = plt.subplots()
-                count_df.plot(kind="bar", ax=ax1)
-                st.pyplot(fig1)
-
-            with col2:
-                st.subheader("📉 Confidence Scores")
-                fig2, ax2 = plt.subplots()
-                ax2.bar(df["Object"], df["Confidence"])
-                ax2.set_ylim(0,1)
-                st.pyplot(fig2)
-
+    if st.sidebar.button("Login"):
+        if username in users and users[username] == password:
+            st.session_state["logged_in"] = True
+            st.session_state["user"] = username
         else:
-            st.error("No objects detected.")
-            st.markdown("### Possible Failure Causes:")
-            st.markdown("""
-            - Low image quality  
-            - Object too small  
-            - Object not in trained dataset  
-            - Poor lighting  
-            - Wrong model selected  
-            """)
+            st.sidebar.error("Invalid Credentials")
 
-# ---------------------------
-# MULTIPLE IMAGE MODE
-# ---------------------------
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
 
-elif mode == "Multiple Images":
-    uploaded_files = st.file_uploader(
-        "Upload Multiple Images",
-        type=["jpg","png","jpeg"],
-        accept_multiple_files=True
-    )
+if not st.session_state["logged_in"]:
+    login()
+    st.stop()
 
-    if uploaded_files:
-        all_data = []
+# -------------------- HEADER --------------------
 
-        for file in uploaded_files:
-            image = Image.open(file)
-            results = model(image)
-            result = results[0]
-            df = process_result(result)
+st.title("🚀 YOLOv8 Enterprise ML Dashboard")
+st.sidebar.success(f"Logged in as {st.session_state['user']}")
 
-            if not df.empty:
-                df["Image"] = file.name
-                all_data.append(df)
+# -------------------- TABS --------------------
 
-        if all_data:
-            final_df = pd.concat(all_data)
-            st.subheader("📊 Batch Detection Results")
-            st.dataframe(final_df)
-        else:
-            st.warning("No detections in uploaded images.")
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "📂 Dataset Viewer",
+    "🏋️ Training",
+    "📊 Evaluation",
+    "⚖ Model Compare",
+    "🔍 Prediction",
+    "🖥 GPU Monitor"
+])
 
-# ---------------------------
-# VIDEO MODE
-# ---------------------------
+# -------------------- DATASET VIEWER --------------------
 
-elif mode == "Video":
-    video_file = st.file_uploader("Upload Video", type=["mp4","avi","mov"])
+with tab1:
+    st.header("Dataset Annotation Viewer")
 
-    if video_file:
-        tfile = tempfile.NamedTemporaryFile(delete=False)
-        tfile.write(video_file.read())
+    image_folder = "data/train/images"
+    label_folder = "data/train/labels"
 
-        cap = cv2.VideoCapture(tfile.name)
-        stframe = st.empty()
+    if os.path.exists(image_folder):
+        images = os.listdir(image_folder)
+        selected = st.selectbox("Select Image", images)
 
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
+        if selected:
+            img_path = os.path.join(image_folder, selected)
+            label_path = os.path.join(label_folder, selected.replace(".jpg", ".txt"))
 
-            results = model(frame)
-            annotated = results[0].plot()
-            stframe.image(annotated, channels="BGR")
+            img = cv2.imread(img_path)
+            h, w, _ = img.shape
 
-        cap.release()
+            if os.path.exists(label_path):
+                with open(label_path) as f:
+                    lines = f.readlines()
 
-# ---------------------------
-# mAP & Confusion Matrix
-# ---------------------------
+                for line in lines:
+                    cls, x, y, bw, bh = map(float, line.split())
+                    x1 = int((x - bw/2) * w)
+                    y1 = int((y - bh/2) * h)
+                    x2 = int((x + bw/2) * w)
+                    y2 = int((y + bh/2) * h)
+                    cv2.rectangle(img, (x1,y1),(x2,y2),(0,255,0),2)
 
-st.sidebar.header("📊 Model Metrics")
+            st.image(img, channels="BGR")
 
-if st.sidebar.button("Show mAP Metrics (if available)"):
-    if os.path.exists("runs/detect/train/results.csv"):
-        metrics = pd.read_csv("runs/detect/train/results.csv")
-        st.subheader("📈 mAP Metrics")
-        st.line_chart(metrics[["metrics/mAP50(B)", "metrics/mAP50-95(B)"]])
-    else:
-        st.warning("Training results not found.")
+# -------------------- TRAINING --------------------
 
-if st.sidebar.button("Show Confusion Matrix (if available)"):
+with tab2:
+    st.header("Train Model")
+
+    epochs = st.slider("Epochs", 10, 200, 50)
+
+    if st.button("Start Training"):
+        model = YOLO("yolov8n.pt")
+        model.train(data="data.yaml", epochs=epochs, imgsz=640)
+        st.success("Training Completed!")
+
+# -------------------- EVALUATION --------------------
+
+with tab3:
+    st.header("Model Evaluation")
+
+    csv_path = "runs/detect/train/results.csv"
     cm_path = "runs/detect/train/confusion_matrix.png"
+
+    if os.path.exists(csv_path):
+        df = pd.read_csv(csv_path)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.subheader("Loss Curve")
+            st.line_chart(df[["train/box_loss", "val/box_loss"]])
+
+        with col2:
+            st.subheader("Precision / Recall")
+            st.line_chart(df[["metrics/precision(B)", "metrics/recall(B)"]])
+
+        # Interactive Confusion Matrix if CSV available
+        cm_csv = "runs/detect/train/confusion_matrix.csv"
+        if os.path.exists(cm_csv):
+            cm = pd.read_csv(cm_csv, header=None)
+            fig = px.imshow(cm, text_auto=True, color_continuous_scale="Blues")
+            st.plotly_chart(fig, use_container_width=True)
+
     if os.path.exists(cm_path):
-        st.subheader("📉 Confusion Matrix")
         st.image(cm_path)
+
+    # PDF REPORT
+    if st.button("Download PDF Report"):
+        pdf_path = "evaluation_report.pdf"
+        doc = SimpleDocTemplate(pdf_path)
+        elements = []
+        styles = getSampleStyleSheet()
+
+        elements.append(Paragraph("YOLOv8 Evaluation Report", styles["Title"]))
+        elements.append(Spacer(1, 0.3 * inch))
+
+        if os.path.exists(csv_path):
+            table_data = df.tail(1).values.tolist()
+            headers = list(df.columns)
+            table = Table([headers] + table_data)
+            elements.append(table)
+
+        doc.build(elements)
+        st.success("PDF Generated")
+        with open(pdf_path, "rb") as f:
+            st.download_button("Download PDF", f, file_name="evaluation_report.pdf")
+
+# -------------------- MODEL COMPARISON --------------------
+
+with tab4:
+    st.header("Model Version Comparison")
+
+    if os.path.exists("models"):
+        model_files = os.listdir("models")
+
+        if len(model_files) >= 2:
+            m1 = st.selectbox("Model 1", model_files)
+            m2 = st.selectbox("Model 2", model_files)
+
+            if st.button("Compare Models"):
+                model1 = YOLO(f"models/{m1}")
+                model2 = YOLO(f"models/{m2}")
+
+                r1 = model1.val(data="data.yaml")
+                r2 = model2.val(data="data.yaml")
+
+                st.write("Model 1 mAP:", r1.box.map)
+                st.write("Model 2 mAP:", r2.box.map)
+
+# -------------------- PREDICTION --------------------
+
+with tab5:
+    st.header("Image Prediction")
+
+    model_path = "runs/detect/train/weights/best.pt"
+
+    if os.path.exists(model_path):
+        model = YOLO(model_path)
+
+        uploaded = st.file_uploader("Upload Image", type=["jpg","png","jpeg"])
+
+        if uploaded:
+            results = model(uploaded)
+            result_img = results[0].plot()
+            st.image(result_img)
     else:
-        st.warning("Confusion matrix not found.")
+        st.warning("Train model first")
+
+# -------------------- GPU MONITOR --------------------
+
+with tab6:
+    st.header("GPU Monitoring")
+
+    if torch.cuda.is_available():
+        st.success("GPU Available")
+        st.write("GPU Name:", torch.cuda.get_device_name(0))
+        st.write("Memory Allocated:", round(torch.cuda.memory_allocated(0)/1024**3,2),"GB")
+        st.write("Memory Reserved:", round(torch.cuda.memory_reserved(0)/1024**3,2),"GB")
+    else:
+        st.error("GPU Not Available")
