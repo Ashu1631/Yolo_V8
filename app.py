@@ -1,6 +1,5 @@
 import streamlit as st
 import os
-import yaml
 import pandas as pd
 import torch
 from ultralytics import YOLO
@@ -8,45 +7,13 @@ from PIL import Image
 import plotly.express as px
 import cv2
 import numpy as np
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as RLImage
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib import colors
-from reportlab.lib.units import inch
-from reportlab.platypus import Table
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table
 from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
 
-st.set_page_config(layout="wide", page_title="YOLOv8 Enterprise Dashboard")
+st.set_page_config(layout="wide", page_title="YOLOv8 ML Dashboard")
 
-# -------------------- LOGIN SYSTEM --------------------
-
-def load_users():
-    with open("users.yaml", "r") as file:
-        return yaml.safe_load(file)["users"]
-
-def login():
-    st.sidebar.title("🔐 Login")
-    username = st.sidebar.text_input("Username")
-    password = st.sidebar.text_input("Password", type="password")
-    users = load_users()
-
-    if st.sidebar.button("Login"):
-        if username in users and users[username] == password:
-            st.session_state["logged_in"] = True
-            st.session_state["user"] = username
-        else:
-            st.sidebar.error("Invalid Credentials")
-
-if "logged_in" not in st.session_state:
-    st.session_state["logged_in"] = False
-
-if not st.session_state["logged_in"]:
-    login()
-    st.stop()
-
-# -------------------- HEADER --------------------
-
-st.title("🚀 YOLOv8 Enterprise ML Dashboard")
-st.sidebar.success(f"Logged in as {st.session_state['user']}")
+st.title("🚀 YOLOv8 Production ML Dashboard")
 
 # -------------------- TABS --------------------
 
@@ -91,11 +58,13 @@ with tab1:
                     cv2.rectangle(img, (x1,y1),(x2,y2),(0,255,0),2)
 
             st.image(img, channels="BGR")
+    else:
+        st.warning("Dataset not found")
 
 # -------------------- TRAINING --------------------
 
 with tab2:
-    st.header("Train Model")
+    st.header("Train YOLO Model")
 
     epochs = st.slider("Epochs", 10, 200, 50)
 
@@ -110,7 +79,8 @@ with tab3:
     st.header("Model Evaluation")
 
     csv_path = "runs/detect/train/results.csv"
-    cm_path = "runs/detect/train/confusion_matrix.png"
+    cm_csv = "runs/detect/train/confusion_matrix.csv"
+    cm_img = "runs/detect/train/confusion_matrix.png"
 
     if os.path.exists(csv_path):
         df = pd.read_csv(csv_path)
@@ -125,15 +95,20 @@ with tab3:
             st.subheader("Precision / Recall")
             st.line_chart(df[["metrics/precision(B)", "metrics/recall(B)"]])
 
-        # Interactive Confusion Matrix if CSV available
-        cm_csv = "runs/detect/train/confusion_matrix.csv"
+        # Interactive Confusion Matrix
         if os.path.exists(cm_csv):
+            st.subheader("Interactive Confusion Matrix")
             cm = pd.read_csv(cm_csv, header=None)
-            fig = px.imshow(cm, text_auto=True, color_continuous_scale="Blues")
+            fig = px.imshow(
+                cm,
+                text_auto=True,
+                color_continuous_scale="Blues",
+                labels=dict(x="Predicted", y="Actual")
+            )
             st.plotly_chart(fig, use_container_width=True)
 
-    if os.path.exists(cm_path):
-        st.image(cm_path)
+    if os.path.exists(cm_img):
+        st.image(cm_img)
 
     # PDF REPORT
     if st.button("Download PDF Report"):
@@ -153,6 +128,7 @@ with tab3:
 
         doc.build(elements)
         st.success("PDF Generated")
+
         with open(pdf_path, "rb") as f:
             st.download_button("Download PDF", f, file_name="evaluation_report.pdf")
 
@@ -177,6 +153,8 @@ with tab4:
 
                 st.write("Model 1 mAP:", r1.box.map)
                 st.write("Model 2 mAP:", r2.box.map)
+        else:
+            st.info("Add at least two models inside models/ folder")
 
 # -------------------- PREDICTION --------------------
 
