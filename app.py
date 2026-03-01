@@ -9,7 +9,7 @@ from ultralytics import YOLO
 from streamlit_autorefresh import st_autorefresh
 
 # =====================================================
-# CONFIG
+# PAGE CONFIG
 # =====================================================
 st.set_page_config(
     page_title="YOLOv8 Enterprise Dashboard",
@@ -21,10 +21,10 @@ ANALYSIS_PATH = "analysis"
 DATASET_PATH = "datasets"
 
 # =====================================================
-# AUTO REFRESH (Optional)
+# AUTO REFRESH OPTION
 # =====================================================
 if st.sidebar.checkbox("Auto Refresh (30 sec)"):
-    st_autorefresh(interval=30000, key="refresh")
+    st_autorefresh(interval=30000, key="datarefresh")
 
 # =====================================================
 # LOAD USERS
@@ -85,7 +85,7 @@ else:
     st.markdown("---")
 
     # =====================================================
-    # 1️⃣ ACCURACY HISTORY GRAPH
+    # ACCURACY HISTORY GRAPH
     # =====================================================
     st.header("📈 Accuracy History")
 
@@ -105,6 +105,7 @@ else:
         if "metrics/precision(B)" in df.columns:
             precision = df["metrics/precision(B)"].iloc[-1]
             fap = (1 - precision) * 100
+
             col1, col2 = st.columns(2)
             col1.metric("Final Precision", f"{precision:.4f}")
             col2.metric("False Alarm % (FAP)", f"{fap:.2f}%")
@@ -114,35 +115,47 @@ else:
     st.markdown("---")
 
     # =====================================================
-    # 2️⃣ DATASET GRID + PAGINATION
+    # DATASET GRID VIEW + PAGINATION
     # =====================================================
     st.header("🗂 Dataset Viewer")
 
     if os.path.exists(DATASET_PATH):
 
-        images = sorted([f for f in os.listdir(DATASET_PATH)
-                         if f.lower().endswith((".jpg", ".png", ".jpeg"))])
+        images = sorted([
+            f for f in os.listdir(DATASET_PATH)
+            if f.lower().endswith((".jpg", ".png", ".jpeg"))
+        ])
 
         total_images = len(images)
         st.write(f"Total Images: {total_images}")
 
-        per_page = 12
-        total_pages = max(1, (total_images + per_page - 1) // per_page)
+        if total_images > 0:
 
-        page = st.number_input("Page", min_value=1,
-                               max_value=total_pages, value=1)
+            per_page = 12
+            total_pages = max(1, (total_images + per_page - 1) // per_page)
 
-        start = (page - 1) * per_page
-        end = min(start + per_page, total_images)
+            page = st.number_input(
+                "Page",
+                min_value=1,
+                max_value=total_pages,
+                value=1,
+                step=1
+            )
 
-        cols = st.columns(4)
+            start = (page - 1) * per_page
+            end = min(start + per_page, total_images)
 
-        for idx, img in enumerate(images[start:end]):
-            col = cols[idx % 4]
-            image_path = os.path.join(DATASET_PATH, img)
-            col.image(image_path, use_container_width=True)
+            cols = st.columns(4)
 
-        st.info(f"Showing {start+1} - {end} of {total_images}")
+            for idx, img in enumerate(images[start:end]):
+                col = cols[idx % 4]
+                image_path = os.path.join(DATASET_PATH, img)
+                col.image(image_path, use_container_width=True)
+
+            st.info(f"Showing {start+1} - {end} of {total_images}")
+
+        else:
+            st.warning("No images found in datasets folder")
 
     else:
         st.warning("datasets folder not found")
@@ -150,45 +163,48 @@ else:
     st.markdown("---")
 
     # =====================================================
-    # 3️⃣ MODEL COMPARISON
+    # MODEL SELECTION
     # =====================================================
-    st.header("📊 Model Comparison")
+    st.header("📊 Model Selection")
 
     if os.path.exists(ANALYSIS_PATH):
-        model_files = [f for f in os.listdir(ANALYSIS_PATH)
-                       if f.endswith(".pt")]
+        model_files = [
+            f for f in os.listdir(ANALYSIS_PATH)
+            if f.endswith(".pt")
+        ]
 
         if model_files:
-            model1 = st.selectbox("Select Model", model_files)
-
-            st.success(f"Selected Model: {model1}")
+            selected_model = st.selectbox(
+                "Select Model",
+                model_files
+            )
+            st.success(f"Selected Model: {selected_model}")
         else:
-            st.warning("No .pt models found")
+            st.warning("No .pt model found inside analysis folder")
     else:
         st.warning("analysis folder not found")
 
     st.markdown("---")
 
     # =====================================================
-    # 4️⃣ YOLO REAL INFERENCE
+    # YOLO INFERENCE ON DATASET PAGE
     # =====================================================
     st.header("🧠 Run YOLO Inference")
 
-    if 'model1' in locals():
+    if 'selected_model' in locals():
         if st.button("Run Inference on Current Page Images"):
 
             try:
-                model_path = os.path.join(ANALYSIS_PATH, model1)
+                model_path = os.path.join(ANALYSIS_PATH, selected_model)
                 model = YOLO(model_path)
 
                 for img in images[start:end]:
                     image_path = os.path.join(DATASET_PATH, img)
                     results = model(image_path)
                     result_img = results[0].plot()
-                    st.image(result_img, caption=img,
-                             use_container_width=True)
+                    st.image(result_img, caption=img, use_container_width=True)
 
-            except Exception as e:
+            except Exception:
                 st.error("Model inference failed")
 
     st.markdown("---")
