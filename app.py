@@ -5,10 +5,12 @@ from PIL import Image
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
+from ultralytics import YOLO
+from streamlit_autorefresh import st_autorefresh
 
-# -------------------------------------------------
+# =====================================================
 # CONFIG
-# -------------------------------------------------
+# =====================================================
 st.set_page_config(
     page_title="YOLOv8 Enterprise Dashboard",
     page_icon="🚀",
@@ -18,25 +20,30 @@ st.set_page_config(
 ANALYSIS_PATH = "analysis"
 DATASET_PATH = "datasets"
 
-# -------------------------------------------------
+# =====================================================
+# AUTO REFRESH (Optional)
+# =====================================================
+if st.sidebar.checkbox("Auto Refresh (30 sec)"):
+    st_autorefresh(interval=30000, key="refresh")
+
+# =====================================================
 # LOAD USERS
-# -------------------------------------------------
+# =====================================================
 def load_users():
-    with open("users.yaml") as file:
-        return yaml.load(file, Loader=SafeLoader)
+    if os.path.exists("users.yaml"):
+        with open("users.yaml") as file:
+            return yaml.load(file, Loader=SafeLoader)
+    return {"users": {}}
 
 users_data = load_users()
 
-# -------------------------------------------------
-# SESSION INIT
-# -------------------------------------------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "username" not in st.session_state:
     st.session_state.username = None
 
 def login(username, password):
-    if username in users_data["users"]:
+    if username in users_data.get("users", {}):
         if users_data["users"][username]["password"] == password:
             st.session_state.logged_in = True
             st.session_state.username = username
@@ -47,9 +54,9 @@ def logout():
     st.session_state.logged_in = False
     st.session_state.username = None
 
-# -------------------------------------------------
+# =====================================================
 # LOGIN PAGE
-# -------------------------------------------------
+# =====================================================
 if not st.session_state.logged_in:
 
     st.title("🔐 YOLOv8 Enterprise Login")
@@ -63,21 +70,23 @@ if not st.session_state.logged_in:
         else:
             st.error("Invalid Credentials")
 
-# -------------------------------------------------
+# =====================================================
 # MAIN DASHBOARD
-# -------------------------------------------------
+# =====================================================
 else:
 
     st.sidebar.success(f"Logged in as {st.session_state.username}")
+
     if st.sidebar.button("Logout"):
         logout()
         st.rerun()
 
-    st.title("🚀 YOLOv8 Enterprise Dashboard")
+    st.title("🚀 YOLOv8 Production Dashboard")
+    st.markdown("---")
 
-    # =========================================================
+    # =====================================================
     # 1️⃣ ACCURACY HISTORY GRAPH
-    # =========================================================
+    # =====================================================
     st.header("📈 Accuracy History")
 
     csv_path = os.path.join(ANALYSIS_PATH, "results.csv")
@@ -86,69 +95,101 @@ else:
         df = pd.read_csv(csv_path)
 
         if "metrics/mAP50(B)" in df.columns:
-            accuracy = df["metrics/mAP50(B)"]
-
             fig = plt.figure()
-            plt.plot(accuracy)
+            plt.plot(df["metrics/mAP50(B)"])
             plt.xlabel("Epoch")
             plt.ylabel("mAP50")
-            plt.title("Accuracy Progress Over Epochs")
+            plt.title("Accuracy Over Epochs")
             st.pyplot(fig)
 
-        else:
-            st.warning("mAP column not found in CSV")
-
+        if "metrics/precision(B)" in df.columns:
+            precision = df["metrics/precision(B)"].iloc[-1]
+            fap = (1 - precision) * 100
+            col1, col2 = st.columns(2)
+            col1.metric("Final Precision", f"{precision:.4f}")
+            col2.metric("False Alarm % (FAP)", f"{fap:.2f}%")
     else:
-        st.warning("results.csv not found")
+        st.warning("results.csv not found in analysis folder")
 
     st.markdown("---")
 
-    # =========================================================
-    # 2️⃣ DATASET IMAGE VIEWER
-    # =========================================================
+    # =====================================================
+    # 2️⃣ DATASET GRID + PAGINATION
+    # =====================================================
     st.header("🗂 Dataset Viewer")
 
     if os.path.exists(DATASET_PATH):
 
-        image_files = [f for f in os.listdir(DATASET_PATH)
-                       if f.lower().endswith((".jpg", ".png", ".jpeg"))]
+        images = sorted([f for f in os.listdir(DATASET_PATH)
+                         if f.lower().endswith((".jpg", ".png", ".jpeg"))])
 
-        st.write(f"Total Images: {len(image_files)}")
+        total_images = len(images)
+        st.write(f"Total Images: {total_images}")
 
-        selected_image = st.selectbox("Select Image", image_files)
+        per_page = 12
+        total_pages = max(1, (total_images + per_page - 1) // per_page)
 
-        if selected_image:
-            image_path = os.path.join(DATASET_PATH, selected_image)
-            image = Image.open(image_path)
-            st.image(image, use_container_width=True)
+        page = st.number_input("Page", min_value=1,
+                               max_value=total_pages, value=1)
+
+        start = (page - 1) * per_page
+        end = min(start + per_page, total_images)
+
+        cols = st.columns(4)
+
+        for idx, img in enumerate(images[start:end]):
+            col = cols[idx % 4]
+            image_path = os.path.join(DATASET_PATH, img)
+            col.image(image_path, use_container_width=True)
+
+        st.info(f"Showing {start+1} - {end} of {total_images}")
 
     else:
         st.warning("datasets folder not found")
 
     st.markdown("---")
 
-    # =========================================================
-    # 3️⃣ FAP CALCULATION (False Alarm Percentage)
-    # =========================================================
-    st.header("📊 FAP Calculation")
+    # =====================================================
+    # 3️⃣ MODEL COMPARISON
+    # =====================================================
+    st.header("📊 Model Comparison")
 
-    if os.path.exists(csv_path):
-        df = pd.read_csv(csv_path)
+    if os.path.exists(ANALYSIS_PATH):
+        model_files = [f for f in os.listdir(ANALYSIS_PATH)
+                       if f.endswith(".pt")]
 
-        if "metrics/precision(B)" in df.columns and "metrics/recall(B)" in df.columns:
-            precision = df["metrics/precision(B)"].iloc[-1]
-            recall = df["metrics/recall(B)"].iloc[-1]
+        if model_files:
+            model1 = st.selectbox("Select Model", model_files)
 
-            # Simple derived FAP logic (example approximation)
-            fap = (1 - precision) * 100
-
-            st.metric("Final Precision", f"{precision:.3f}")
-            st.metric("Final Recall", f"{recall:.3f}")
-            st.metric("Estimated FAP (%)", f"{fap:.2f}%")
-
+            st.success(f"Selected Model: {model1}")
         else:
-            st.warning("Required columns not found in CSV")
+            st.warning("No .pt models found")
+    else:
+        st.warning("analysis folder not found")
 
     st.markdown("---")
 
+    # =====================================================
+    # 4️⃣ YOLO REAL INFERENCE
+    # =====================================================
+    st.header("🧠 Run YOLO Inference")
+
+    if 'model1' in locals():
+        if st.button("Run Inference on Current Page Images"):
+
+            try:
+                model_path = os.path.join(ANALYSIS_PATH, model1)
+                model = YOLO(model_path)
+
+                for img in images[start:end]:
+                    image_path = os.path.join(DATASET_PATH, img)
+                    results = model(image_path)
+                    result_img = results[0].plot()
+                    st.image(result_img, caption=img,
+                             use_container_width=True)
+
+            except Exception as e:
+                st.error("Model inference failed")
+
+    st.markdown("---")
     st.success("Dashboard Running Successfully ✅")
