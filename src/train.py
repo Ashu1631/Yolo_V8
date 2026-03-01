@@ -1,8 +1,7 @@
-import os
 import sys
-from pathlib import Path
-from ultralytics import YOLO
 import torch
+from ultralytics import YOLO
+from roboflow import Roboflow
 
 
 def check_gpu():
@@ -14,24 +13,31 @@ def check_gpu():
         return "cpu"
 
 
+def download_dataset():
+    print("⬇️ Downloading dataset from Roboflow...")
+
+    rf = Roboflow(api_key="A828xM1sAEtjHMh5WHGh")
+    project = rf.workspace("ashishs-workspace-nho2b").project("traffic-detection-yc4eg")
+    version = project.version(1)
+    dataset = version.download("yolov8")
+
+    print("✅ Dataset downloaded successfully!")
+    return dataset.location + "/data.yaml"
+
+
 def main():
     try:
-        # Detect device automatically
         device = check_gpu()
 
-        # Paths
-        data_path = Path("dataset.yaml")
-
-        if not data_path.exists():
-            print("❌ data.yaml not found inside data/ folder.")
-            sys.exit(1)
+        # Download dataset
+        data_path = download_dataset()
 
         # Load pretrained YOLOv8 model
         model = YOLO("yolov8n.pt")
 
         # Train model
         model.train(
-            data=str(data_path),
+            data=data_path,
             epochs=100,
             imgsz=640,
             batch=16,
@@ -41,8 +47,8 @@ def main():
             exist_ok=True
         )
 
-        print("\n✅ Training completed successfully!")
-        print("📁 Check: runs/vehicle_detection/weights/best.pt")
+        print("\n🎉 Training Completed Successfully!")
+        print("📁 Model saved at: runs/vehicle_detection/weights/best.pt")
 
     except Exception as e:
         print(f"\n❌ Training Failed: {e}")
