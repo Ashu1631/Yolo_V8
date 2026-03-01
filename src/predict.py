@@ -6,7 +6,7 @@ from ultralytics import YOLO
 def main():
     try:
         # Model path
-        model_path = Path("best.pt")
+        model = YOLO("analysis/best.pt")
 
         if not model_path.exists():
             print("❌ best.pt not found in root directory.")
