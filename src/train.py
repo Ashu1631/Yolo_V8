@@ -20,7 +20,7 @@ def main():
         device = check_gpu()
 
         # Paths
-        data_path = Path("data/data.yaml")
+        data_path = Path("dataset.yaml")
 
         if not data_path.exists():
             print("❌ data.yaml not found inside data/ folder.")
