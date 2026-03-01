@@ -1,9 +1,14 @@
-train: ../train/images
-val: ../valid/images
-test: ../test/images
+path: data
 
-nc: 5
-names: ['Ambulance', 'Bus', 'Car', 'Motorcycle', 'Truck']
+train: train/images
+val: valid/images
+test: test/images
 
-#roboflow:
-  #url: https://universe.roboflow.com/roboflow-gw7yv/vehicles-openimages/dataset/1
+nc: 6
+names:
+  0: Ambulance
+  1: Bus
+  2: Car
+  3: Motorcycle
+  4: Truck
+  5: People
