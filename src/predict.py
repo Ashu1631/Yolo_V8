@@ -14,7 +14,7 @@ def main():
             sys.exit(1)
 
         # Input source
-        source_path = Path("input.jpg")
+        source_path = Path("test.jpg")
 
         if not source_path.exists():
             print("❌ input.jpg not found in root directory.")
