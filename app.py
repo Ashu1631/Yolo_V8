@@ -6,18 +6,29 @@ import numpy as np
 import pandas as pd
 import base64
 import os
+import gdown
 
 # -------------------------
-# Load YOLO model
+# Auto-download model if not exists
 # -------------------------
 MODEL_PATH = "analysis/best.pt"
+MODEL_DRIVE_LINK = "https://drive.google.com/uc?id=YOUR_FILE_ID"  # Replace with your file ID
+
+os.makedirs("analysis", exist_ok=True)
+
 if not os.path.exists(MODEL_PATH):
-    st.error(f"Model file not found at {MODEL_PATH}. Please upload your trained weights.")
-else:
+    st.info("Downloading model weights...")
+    gdown.download(MODEL_DRIVE_LINK, MODEL_PATH, quiet=False)
+
+# Load model
+try:
     model = YOLO(MODEL_PATH)
+except Exception as e:
+    st.error("Error loading YOLO model!")
+    st.write(e)
 
 # -------------------------
-# Streamlit App Config
+# Streamlit Config
 # -------------------------
 st.set_page_config(page_title="YOLOv8 Object Detection", layout="wide")
 st.title("YOLOv8 Object Detection Dashboard")
@@ -36,7 +47,7 @@ choice = st.sidebar.radio("Choose Option", options)
 confidence = st.sidebar.slider("Confidence Threshold", 0.1, 1.0, 0.5)
 
 # -------------------------
-# Helper function to download files
+# File Download Helper
 # -------------------------
 def download_file(file_path, file_label):
     if os.path.exists(file_path):
@@ -55,11 +66,10 @@ def detect_image(uploaded_file):
         image = Image.open(uploaded_file)
         results = model(image, conf=confidence)
         st.image(results[0].plot(), caption="Detected Image", use_column_width=True)
-        
+
         st.write("**Detected Classes and Confidence:**")
         st.dataframe(results.pandas().xywh[0][["name", "confidence"]])
-        
-        # Save and download
+
         results.save("analysis/temp_image_result.png")
         download_file("analysis/temp_image_result.png", "prediction.png")
     except Exception as e:
@@ -76,16 +86,16 @@ def detect_video(uploaded_file):
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = cap.get(cv2.CAP_PROP_FPS)
-        
+
         out_path = "analysis/output_video.mp4"
         out = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
-        
+
         stframe = st.empty()
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         frame_count = 0
         progress_text = "Processing video..."
         my_bar = st.progress(0, text=progress_text)
-        
+
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
@@ -94,10 +104,10 @@ def detect_video(uploaded_file):
             frame_out = results[0].plot()
             out.write(frame_out)
             stframe.image(frame_out, channels="BGR", use_column_width=True)
-            
+
             frame_count += 1
             my_bar.progress(frame_count / total_frames, text=progress_text)
-        
+
         cap.release()
         out.release()
         st.success("Video processed successfully!")
@@ -116,36 +126,23 @@ def display_metrics():
         df_path = "analysis/results.csv"
         if not os.path.exists(df_path):
             raise FileNotFoundError("results.csv not found!")
-        
+
         df = pd.read_csv(df_path)
-        st.subheader("mAP over Epochs")
-        st.line_chart(df[['metrics/mAP50','metrics/mAP50-95']])
-        
-        st.subheader("Loss Curve")
-        loss_path = "analysis/loss_curve.png"
-        if os.path.exists(loss_path):
-            st.image(loss_path, use_column_width=True)
+
+        # Auto-detect mAP columns
+        map_columns = [col for col in df.columns if "mAP50" in col]
+        if map_columns:
+            st.subheader("mAP over Epochs")
+            st.line_chart(df[map_columns])
         else:
-            st.warning("Loss curve image not found!")
-        
-        st.subheader("Precision-Recall Curve")
-        pr_path = "analysis/PR_curve.png"
-        if os.path.exists(pr_path):
-            st.image(pr_path, use_column_width=True)
-        else:
-            st.warning("PR curve image not found!")
-        
-        st.subheader("Confusion Matrix")
-        cm_path = "analysis/confusion_matrix.png"
-        if os.path.exists(cm_path):
-            st.image(cm_path, use_column_width=True)
-        else:
-            st.warning("Confusion matrix image not found!")
-        
-        st.subheader("Dataset Distribution")
-        for fname in ["class_distribution_bar.png","class_distribution_pie.png","example_images.png"]:
+            st.warning("mAP columns not found! Available: " + ", ".join(df.columns))
+
+        # Display other analysis images if exist
+        for fname in ["loss_curve.png","PR_curve.png","confusion_matrix.png",
+                      "class_distribution_bar.png","class_distribution_pie.png","example_images.png"]:
             fpath = f"analysis/{fname}"
             if os.path.exists(fpath):
+                st.subheader(fname.replace("_", " ").replace(".png",""))
                 st.image(fpath, use_column_width=True)
             else:
                 st.warning(f"{fname} not found!")
@@ -154,7 +151,7 @@ def display_metrics():
         st.write(e)
 
 # -------------------------
-# Failure Cases / Error Analysis
+# Failure Cases
 # -------------------------
 def failure_cases():
     st.subheader("Failure Cases / Error Analysis")
@@ -173,7 +170,7 @@ def failure_cases():
     """)
 
 # -------------------------
-# Main Navigation
+# Main App Navigation
 # -------------------------
 if choice == "Detect Image":
     st.sidebar.subheader("Upload Image")
