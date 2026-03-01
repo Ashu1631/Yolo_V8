@@ -4,7 +4,7 @@ from PIL import Image
 import cv2
 import numpy as np
 import pandas as pd
-import time
+import base64
 
 # -------------------------
 # Load YOLO model from analysis folder
@@ -16,20 +16,29 @@ model = YOLO(MODEL_PATH)
 # Streamlit App Title
 # -------------------------
 st.set_page_config(page_title="YOLOv8 Object Detection", layout="wide")
-st.title("YOLOv8 Advanced Object Detection Dashboard")
+st.title("YOLOv8 Object Detection Dashboard")
 st.markdown("**Detect Vehicles, People, and Household Items**")
 
 # -------------------------
 # Sidebar Navigation
 # -------------------------
 st.sidebar.title("Navigation")
-options = ["Detect Image", "Detect Video", "Metrics & Graphs"]
+options = ["Detect Image", "Detect Video", "Metrics & Graphs", "Failure Cases"]
 choice = st.sidebar.radio("Choose Option", options)
 
 # -------------------------
 # Confidence Slider
 # -------------------------
 confidence = st.sidebar.slider("Confidence Threshold", 0.1, 1.0, 0.5)
+
+# -------------------------
+# Helper functions to download files
+# -------------------------
+def download_file(file_path, file_label):
+    with open(file_path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
+    href = f'<a href="data:application/octet-stream;base64,{b64}" download="{file_label}">Download {file_label}</a>'
+    st.markdown(href, unsafe_allow_html=True)
 
 # -------------------------
 # Image Detection Function
@@ -41,6 +50,10 @@ def detect_image(uploaded_file):
     
     st.write("**Detected Classes and Confidence:**")
     st.dataframe(results.pandas().xywh[0][["name", "confidence"]])
+    
+    # Download result
+    results.save("analysis/temp_image_result.png")
+    download_file("analysis/temp_image_result.png", "prediction.png")
 
 # -------------------------
 # Video Detection Function
@@ -52,7 +65,7 @@ def detect_video(uploaded_file):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
     
-    out_path = "output_video.mp4"
+    out_path = "analysis/output_video.mp4"
     out = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
     
     stframe = st.empty()
@@ -78,6 +91,7 @@ def detect_video(uploaded_file):
     out.release()
     st.success("Video processed successfully!")
     st.video(out_path)
+    download_file(out_path, "prediction_video.mp4")
 
 # -------------------------
 # Metrics & Graphs Function
@@ -89,18 +103,38 @@ def display_metrics():
         st.subheader("mAP over Epochs")
         st.line_chart(df[['metrics/mAP50','metrics/mAP50-95']])
         
+        st.subheader("Loss Curve")
+        st.image("analysis/loss_curve.png", use_column_width=True)
+        
         st.subheader("Precision-Recall Curve")
         st.image("analysis/PR_curve.png", use_column_width=True)
-        
-        st.subheader("Loss Curves")
-        st.image("analysis/results.png", use_column_width=True)
         
         st.subheader("Confusion Matrix")
         st.image("analysis/confusion_matrix.png", use_column_width=True)
         
+        st.subheader("Dataset Distribution")
+        st.image("analysis/class_distribution_bar.png", use_column_width=True)
+        st.image("analysis/class_distribution_pie.png", use_column_width=True)
+        st.image("analysis/example_images.png", use_column_width=True)
+        
     except Exception as e:
         st.error("Metrics files not found in analysis/ folder!")
         st.write(e)
+
+# -------------------------
+# Failure Cases / Error Analysis
+# -------------------------
+def failure_cases():
+    st.subheader("Failure Cases / Error Analysis")
+    st.image("analysis/failure1.png", caption="Example: Misclassified Person")
+    st.image("analysis/failure2.png", caption="Example: Missed Household Item")
+    st.markdown("""
+    **Notes / Possible Improvements:**
+    - Add more images for rare classes  
+    - Apply data augmentation  
+    - Fine-tune confidence threshold per class  
+    - Increase epochs or try different YOLO architectures
+    """)
 
 # -------------------------
 # Main Navigation
@@ -119,3 +153,6 @@ elif choice == "Detect Video":
 
 elif choice == "Metrics & Graphs":
     display_metrics()
+
+elif choice == "Failure Cases":
+    failure_cases()
