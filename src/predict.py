@@ -13,7 +13,7 @@ def main():
             sys.exit(1)
 
         # 🔥 Test Image Path (Change if needed)
-        source_path = Path("test.jpeg")
+        source_path = Path("/content/test.jpeg")
 
         if not source_path.exists():
             print("❌ Test image not found:", source_path)
