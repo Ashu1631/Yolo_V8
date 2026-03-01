@@ -1,7 +1,7 @@
-streamlit==1.32.2
-pyyaml==6.0.1
-pandas==2.2.1
-Pillow==10.2.0
-matplotlib==3.8.3
-ultralytics==8.1.27
-streamlit-autorefresh==0.1.0
+streamlit
+pyyaml
+pandas
+Pillow
+matplotlib
+ultralytics
+streamlit-autorefresh
