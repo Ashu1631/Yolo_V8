@@ -1,7 +1,7 @@
-streamlit
-ultralytics
-pandas
-pyyaml
-pillow
-opencv-python-headless
-matplotlib
+streamlit==1.26.1
+ultralytics==8.1.23
+pandas==2.1.0
+pyyaml==6.0
+pillow==10.0.0
+opencv-python-headless==4.8.1.78
+matplotlib==3.8.1
