@@ -16,17 +16,15 @@ st.set_page_config(
 )
 
 # -----------------------------
-# CUSTOM DARK STYLE (NO COLOR ISSUE)
+# CUSTOM DARK STYLE
 # -----------------------------
 st.markdown("""
 <style>
-.stApp {
-    background-color: #0E1117;
-    color: white;
-}
-h1, h2, h3 {
-    color: #00FFFF;
-}
+.stApp {background-color: #0E1117; color: white;}
+h1,h2,h3,h4 {color: #00FFFF;}
+.stButton>button {background-color:#1f77b4; color:white;}
+.stDownloadButton>button {background-color:#17becf; color:white;}
+.metric {background-color: #1f1f1f; padding: 10px; border-radius: 8px;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -50,10 +48,8 @@ with open("users.yaml") as file:
 # -----------------------------
 def login():
     st.title("🔐 Login Required")
-
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
-
     if st.button("Login"):
         if username in users and users[username] == password:
             st.session_state.logged_in = True
@@ -73,20 +69,14 @@ if not st.session_state.logged_in:
 # SIDEBAR NAVIGATION
 # -----------------------------
 st.sidebar.title("🚀 YOLOv8 Enterprise Dashboard")
-
-page = st.sidebar.radio(
-    "Navigation",
-    ["Model Selection", "Upload & Detect", "Evaluation Dashboard"]
-)
+page = st.sidebar.radio("Navigation", ["Model Selection", "Upload & Detect", "Evaluation Dashboard"])
 
 # -----------------------------
 # MODEL SELECTION
 # -----------------------------
 if page == "Model Selection":
     st.title("📦 Model Selection")
-
     model_files = [f for f in os.listdir() if f.endswith(".pt")]
-
     if model_files:
         selected = st.selectbox("Select YOLO Model", model_files)
         st.session_state.selected_model = selected
@@ -98,29 +88,22 @@ if page == "Model Selection":
 # UPLOAD & DETECT
 # -----------------------------
 if page == "Upload & Detect":
-
     st.title("📤 Upload & Detect")
-
     if not st.session_state.selected_model:
         st.warning("⚠ Please select model first.")
         st.stop()
 
     option = st.radio("Choose Input Type", ["Upload Image/Video", "Use Dataset Folder"])
-
     model = YOLO(st.session_state.selected_model)
 
     # ---- Upload File ----
     if option == "Upload Image/Video":
         uploaded_file = st.file_uploader("Upload Image or Video", type=["jpg", "png", "jpeg", "mp4"])
-
         if uploaded_file:
             tfile = tempfile.NamedTemporaryFile(delete=False)
             tfile.write(uploaded_file.read())
-
             st.info("Running Detection...")
-
             results = model(tfile.name)
-
             for r in results:
                 im_array = r.plot()
                 st.image(im_array, caption="Detection Result", use_container_width=True)
@@ -128,14 +111,11 @@ if page == "Upload & Detect":
     # ---- Dataset Folder ----
     if option == "Use Dataset Folder":
         dataset_path = "datasets"
-
         if os.path.exists(dataset_path):
             st.success("Using images from datasets folder")
-
             images = [os.path.join(dataset_path, f)
                       for f in os.listdir(dataset_path)
                       if f.endswith((".jpg", ".png", ".jpeg"))]
-
             for img_path in images:
                 results = model(img_path)
                 for r in results:
@@ -148,56 +128,50 @@ if page == "Upload & Detect":
 # EVALUATION DASHBOARD
 # -----------------------------
 if page == "Evaluation Dashboard":
-
     st.title("📊 Evaluation Dashboard")
-
     analysis_path = "analysis"
-
     if not os.path.exists(analysis_path):
         st.error("Analysis folder not found!")
         st.stop()
 
-    col1, col2 = st.columns(2)
+    # ---- METRIC CARDS ----
+    metrics_file = f"{analysis_path}/results.csv"
+    if os.path.exists(metrics_file):
+        df = pd.read_csv(metrics_file)
+        # Assuming df has columns: epoch, loss, precision, recall, mAP50, mAP50-95
+        latest = df.iloc[-1]
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("mAP50", f"{latest['mAP50']*100:.2f}%")
+        col2.metric("mAP50-95", f"{latest['mAP50-95']*100:.2f}%")
+        col3.metric("Precision", f"{latest['precision']*100:.2f}%")
+        col4.metric("Recall", f"{latest['recall']*100:.2f}%")
 
+    # ---- GRAPHS ----
+    col1, col2 = st.columns(2)
     with col1:
         if os.path.exists(f"{analysis_path}/results.png"):
             st.image(f"{analysis_path}/results.png", caption="Training Results")
-
         if os.path.exists(f"{analysis_path}/PR_curve.png"):
             st.image(f"{analysis_path}/PR_curve.png", caption="PR Curve")
-
         if os.path.exists(f"{analysis_path}/F1_curve.png"):
             st.image(f"{analysis_path}/F1_curve.png", caption="F1 Curve")
-
     with col2:
         if os.path.exists(f"{analysis_path}/confusion_matrix.png"):
             st.image(f"{analysis_path}/confusion_matrix.png", caption="Confusion Matrix")
 
-    # CSV Metrics
-    if os.path.exists(f"{analysis_path}/results.csv"):
-        df = pd.read_csv(f"{analysis_path}/results.csv")
+    # ---- LOSS, PRECISION, RECALL GRAPHS ----
+    if os.path.exists(metrics_file):
         st.subheader("📈 Training Metrics")
-        st.line_chart(df)
+        st.line_chart(df[['loss']].rename(columns={'loss':'Loss'}))
+        st.line_chart(df[['precision']].rename(columns={'precision':'Precision'}))
+        st.line_chart(df[['recall']].rename(columns={'recall':'Recall'}))
 
-        with open(f"{analysis_path}/results.csv", "rb") as file:
-            st.download_button(
-                label="⬇ Download Results CSV",
-                data=file,
-                file_name="results.csv"
-            )
+        with open(metrics_file, "rb") as file:
+            st.download_button("⬇ Download Results CSV", data=file, file_name="results.csv")
 
-    # Download Images
-    for file_name in [
-        "results.png",
-        "confusion_matrix.png",
-        "PR_curve.png",
-        "F1_curve.png"
-    ]:
+    # ---- DOWNLOAD IMAGES ----
+    for file_name in ["results.png","confusion_matrix.png","PR_curve.png","F1_curve.png"]:
         file_path = f"{analysis_path}/{file_name}"
         if os.path.exists(file_path):
-            with open(file_path, "rb") as file:
-                st.download_button(
-                    label=f"⬇ Download {file_name}",
-                    data=file,
-                    file_name=file_name
-                )
+            with open(file_path,"rb") as file:
+                st.download_button(f"⬇ Download {file_name}", data=file, file_name=file_name)
