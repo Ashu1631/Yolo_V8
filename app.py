@@ -1,211 +1,297 @@
 import streamlit as st
-import yaml
-from yaml.loader import SafeLoader
-from PIL import Image
 import pandas as pd
+import numpy as np
 import os
-import matplotlib.pyplot as plt
+import cv2
+import plotly.express as px
+import plotly.graph_objects as go
 from ultralytics import YOLO
-from streamlit_autorefresh import st_autorefresh
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
 
-# =====================================================
+# ==========================
 # PAGE CONFIG
-# =====================================================
-st.set_page_config(
-    page_title="YOLOv8 Enterprise Dashboard",
-    page_icon="🚀",
-    layout="wide"
+# ==========================
+st.set_page_config(page_title="YOLOv8 Enterprise Dashboard", layout="wide")
+
+# ==========================
+# SIDEBAR NAVIGATION
+# ==========================
+st.sidebar.title("📂 Navigation")
+menu = st.sidebar.radio(
+    "Go To",
+    [
+        "Model Selection",
+        "Dataset Viewer",
+        "Upload & Detect",
+        "Training",
+        "Evaluation Dashboard",
+        "Model Comparison"
+    ]
 )
 
-ANALYSIS_PATH = "analysis"
-DATASET_PATH = "datasets"
+# ==========================
+# SESSION STATE
+# ==========================
+if "model" not in st.session_state:
+    st.session_state.model = None
 
-# =====================================================
-# AUTO REFRESH OPTION
-# =====================================================
-if st.sidebar.checkbox("Auto Refresh (30 sec)"):
-    st_autorefresh(interval=30000, key="datarefresh")
+if "run_name" not in st.session_state:
+    st.session_state.run_name = "train"
 
-# =====================================================
-# LOAD USERS
-# =====================================================
-def load_users():
-    if os.path.exists("users.yaml"):
-        with open("users.yaml") as file:
-            return yaml.load(file, Loader=SafeLoader)
-    return {"users": {}}
+# ==========================================================
+# 1️⃣ MODEL SELECTION
+# ==========================================================
+if menu == "Model Selection":
 
-users_data = load_users()
-
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "username" not in st.session_state:
-    st.session_state.username = None
-
-def login(username, password):
-    if username in users_data.get("users", {}):
-        if users_data["users"][username]["password"] == password:
-            st.session_state.logged_in = True
-            st.session_state.username = username
-            return True
-    return False
-
-def logout():
-    st.session_state.logged_in = False
-    st.session_state.username = None
-
-# =====================================================
-# LOGIN PAGE
-# =====================================================
-if not st.session_state.logged_in:
-
-    st.title("🔐 YOLOv8 Enterprise Login")
-
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-        if login(username, password):
-            st.rerun()
-        else:
-            st.error("Invalid Credentials")
-
-# =====================================================
-# MAIN DASHBOARD
-# =====================================================
-else:
-
-    st.sidebar.success(f"Logged in as {st.session_state.username}")
-
-    if st.sidebar.button("Logout"):
-        logout()
-        st.rerun()
-
-    st.title("🚀 YOLOv8 Production Dashboard")
-    st.markdown("---")
-
-    # =====================================================
-    # ACCURACY HISTORY GRAPH
-    # =====================================================
-    st.header("📈 Accuracy History")
-
-    csv_path = os.path.join(ANALYSIS_PATH, "results.csv")
-
-    if os.path.exists(csv_path):
-        df = pd.read_csv(csv_path)
-
-        if "metrics/mAP50(B)" in df.columns:
-            fig = plt.figure()
-            plt.plot(df["metrics/mAP50(B)"])
-            plt.xlabel("Epoch")
-            plt.ylabel("mAP50")
-            plt.title("Accuracy Over Epochs")
-            st.pyplot(fig)
-
-        if "metrics/precision(B)" in df.columns:
-            precision = df["metrics/precision(B)"].iloc[-1]
-            fap = (1 - precision) * 100
-
-            col1, col2 = st.columns(2)
-            col1.metric("Final Precision", f"{precision:.4f}")
-            col2.metric("False Alarm % (FAP)", f"{fap:.2f}%")
-    else:
-        st.warning("results.csv not found in analysis folder")
-
-    st.markdown("---")
-
-    # =====================================================
-    # DATASET GRID VIEW + PAGINATION
-    # =====================================================
-    st.header("🗂 Dataset Viewer")
-
-    if os.path.exists(DATASET_PATH):
-
-        images = sorted([
-            f for f in os.listdir(DATASET_PATH)
-            if f.lower().endswith((".jpg", ".png", ".jpeg"))
-        ])
-
-        total_images = len(images)
-        st.write(f"Total Images: {total_images}")
-
-        if total_images > 0:
-
-            per_page = 12
-            total_pages = max(1, (total_images + per_page - 1) // per_page)
-
-            page = st.number_input(
-                "Page",
-                min_value=1,
-                max_value=total_pages,
-                value=1,
-                step=1
-            )
-
-            start = (page - 1) * per_page
-            end = min(start + per_page, total_images)
-
-            cols = st.columns(4)
-
-            for idx, img in enumerate(images[start:end]):
-                col = cols[idx % 4]
-                image_path = os.path.join(DATASET_PATH, img)
-                col.image(image_path, use_container_width=True)
-
-            st.info(f"Showing {start+1} - {end} of {total_images}")
-
-        else:
-            st.warning("No images found in datasets folder")
-
-    else:
-        st.warning("datasets folder not found")
-
-    st.markdown("---")
-
-    # =====================================================
-    # MODEL SELECTION
-    # =====================================================
     st.header("📊 Model Selection")
 
-    if os.path.exists(ANALYSIS_PATH):
-        model_files = [
-            f for f in os.listdir(ANALYSIS_PATH)
-            if f.endswith(".pt")
-        ]
+    model_options = ["yolov8n.pt", "yolov8s.pt", "best.pt"]
+    selected_model = st.selectbox("Select Model", model_options)
 
-        if model_files:
-            selected_model = st.selectbox(
-                "Select Model",
-                model_files
-            )
-            st.success(f"Selected Model: {selected_model}")
-        else:
-            st.warning("No .pt model found inside analysis folder")
+    if st.button("Load Model"):
+        st.session_state.model = YOLO(selected_model)
+        st.success(f"{selected_model} loaded successfully.")
+
+# ==========================================================
+# 2️⃣ DATASET VIEWER
+# ==========================================================
+elif menu == "Dataset Viewer":
+
+    st.header("🖼 Dataset Viewer")
+
+    if st..session_state.model is None:
+        st.warning("Load model first.")
     else:
-        st.warning("analysis folder not found")
+        image_folder = "data/images"
 
-    st.markdown("---")
+        if os.path.exists(image_folder):
+            images = os.listdir(image_folder)
+            selected_image = st.selectbox("Select Image", images)
+            image_path = os.path.join(image_folder, selected_image)
 
-    # =====================================================
-    # YOLO INFERENCE ON DATASET PAGE
-    # =====================================================
-    st.header("🧠 Run YOLO Inference")
+            st.image(image_path, caption="Original")
 
-    if 'selected_model' in locals():
-        if st.button("Run Inference on Current Page Images"):
+            if st.button("Run Detection"):
+                results = st.session_state.model(image_path)
+                annotated = results[0].plot()
+                st.image(annotated, caption="Detected")
 
-            try:
-                model_path = os.path.join(ANALYSIS_PATH, selected_model)
-                model = YOLO(model_path)
+# ==========================================================
+# 3️⃣ UPLOAD IMAGE / VIDEO
+# ==========================================================
+elif menu == "Upload & Detect":
 
-                for img in images[start:end]:
-                    image_path = os.path.join(DATASET_PATH, img)
-                    results = model(image_path)
-                    result_img = results[0].plot()
-                    st.image(result_img, caption=img, use_container_width=True)
+    st.header("📤 Upload Image / Video")
 
-            except Exception:
-                st.error("Model inference failed")
+    if st.session_state.model is None:
+        st.warning("Load model first.")
+    else:
+        uploaded_file = st.file_uploader(
+            "Upload file",
+            type=["jpg", "jpeg", "png", "mp4", "avi", "mov", "mkv"]
+        )
 
-    st.markdown("---")
-    st.success("Dashboard Running Successfully ✅")
+        if uploaded_file is not None:
+
+            if "image" in uploaded_file.type:
+                file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+                image = cv2..imdecode(file_bytes, 1)
+
+                results = st.session_state.model(image)
+                annotated = results[0].plot()
+                st.image(annotated)
+
+            elif "video" in uploaded_file.type:
+                temp_path = "temp_video.mp4"
+                with open(temp_path, "wb") as f:
+                    f.write(uploaded_file.read())
+
+                st.video(temp_path)
+
+                if st.button("Run Video Detection"):
+                    st.session_state.model(temp_path, save=True)
+                    st.success("Video processed.")
+
+# ==========================================================
+# 4️⃣ TRAINING SECTION (AUTO TRAIN TRIGGER)
+# ==========================================================
+elif menu == "Training":
+
+    st.header("🚀 Train Model from Dashboard")
+
+    data_yaml = st.text_input("Dataset YAML Path", "data.yaml")
+    epochs = st.number_input("Epochs", min_value=1, max_value=300, value=50)
+    imgsz = st.number_input("Image Size", min_value=320, max_value=1280, value=640)
+    run_name = st.text_input("Run Name", "train_custom")
+
+    if st.session_state.model is None:
+        st.warning("Load base model first.")
+    else:
+        if st.button("Start Training"):
+
+            st.info("Training started... This may take time.")
+
+            st.session_state.model.train(
+                data=data_yaml,
+                epochs=epochs,
+                imgsz=imgsz,
+                project="runs/detect",
+                name=run_name
+            )
+
+            st.session_state.run_name = run_name
+            st.success("Training completed.")
+
+# ==========================================================
+# 5️⃣ EVALUATION DASHBOARD
+# ==========================================================
+elif menu == "Evaluation Dashboard":
+
+    st.header("📈 Evaluation Dashboard")
+
+    run_name = st.text_input("Run Folder Name", st.session_state.run_name)
+    results_csv = f"runs/detect/{run_name}/results.csv"
+
+    if os.path.exists(results_csv):
+
+        df = pd.read_csv(results_csv)
+
+        # Loss
+        st.plotly_chart(px.line(df, y="train/box_loss", title="Loss Curve"))
+
+        # Recall
+        st.plotly_chart(px.line(df, y="metrics/recall(B)", title="Recall Curve"))
+
+        # mAP50
+        st.plotly_chart(px.line(df, y="metrics/mAP50(B)", title="mAP50"))
+
+        # mAP50-95
+        st.plotly_chart(px.line(df, y="metrics/mAP50-95(B)", title="mAP50-95"))
+
+        # F1
+        df["f1"] = 2 * (
+            df["metrics/precision(B)"] * df["metrics/recall(B)"]
+        ) / (
+            df["metrics/precision(B)"] + df["metrics/recall(B)"]
+        )
+
+        st.plotly_chart(px.line(df, y="f1", title="F1 Score"))
+
+        # ==========================
+        # REAL CONFUSION MATRIX
+        # ==========================
+        st.subheader("🧠 Real Confusion Matrix")
+
+        model = YOLO(f"runs/detect/{run_name}/weights/best.pt")
+        metrics = model.val(data="data.yaml", save_json=True)
+
+        cm = metrics.confusion_matrix.matrix
+        class_names = metrics.names
+
+        # Normalize
+        cm_norm = cm.astype("float") / cm.sum(axis=1, keepdims=True)
+
+        fig_cm = px.imshow(
+            cm_norm,
+            text_auto=True,
+            x=class_names,
+            y=class_names,
+            color_continuous_scale="Blues",
+            title="Normalized Confusion Matrix"
+        )
+
+        st.plotly_chart(fig_cm)
+
+        # ==========================
+        # AUTO INTERPRETATION
+        # ==========================
+        final_map = df["metrics/mAP50(B)"].iloc[-1]
+        final_recall = df["metrics/recall(B)"].iloc[-1]
+        final_f1 = df["f1"].iloc[-1]
+
+        if final_map > 0.80:
+            status = "Excellent"
+        elif final_map > 0.60:
+            status = "Moderate"
+        else:
+            status = "Needs Improvement"
+
+        st.success(f"""
+        mAP50: {final_map:.2f}  
+        Recall: {final_recall:.2f}  
+        F1: {final_f1:.2f}  
+
+        Overall Performance: {status}
+        """)
+
+        # ==========================
+        # PDF REPORT
+        # ==========================
+        if st.button("Download PDF Report"):
+
+            pdf_path = "evaluation_report.pdf"
+            doc = SimpleDocTemplate(pdf_path)
+            elements = []
+            styles = getSampleStyleSheet()
+
+            elements.append(Paragraph("YOLOv8 Evaluation Report", styles["Heading1"]))
+            elements.append(Spacer(1, 0.3 * inch))
+
+            table_data = [
+                ["Metric", "Value"],
+                ["mAP50", f"{final_map:.2f}"],
+                ["Recall", f"{final_recall:.2f}"],
+                ["F1 Score", f"{final_f1:.2f}"],
+                ["Performance", status]
+            ]
+
+            elements.append(Table(table_data))
+            doc.build(elements)
+
+            with open(pdf_path, "rb") as f:
+                st.download_button(
+                    "Click to Download",
+                    f,
+                    file_name="evaluation_report.pdf"
+                )
+
+    else:
+        st.warning("Run results not found.")
+
+# ==========================================================
+# 6️⃣ MODEL COMPARISON
+# ==========================================================
+elif menu == "Model Comparison":
+
+    st.header("📊 Model Version Comparison")
+
+    run1 = st.text_input("Run 1 Name", "train")
+    run2 = st.text_input("Run 2 Name", "train_custom")
+
+    file1 = f"runs/detect/{run1}/results..csv"
+    file2 = f"runs/detect/{run2}/results.csv"
+
+    if os.path.exists(file1) and os.path.exists(file2):
+
+        df1 = pd.read_csv(file1)
+        df2 = pd.read_csv(file2)
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            y=df1["metrics/mAP50(B)"],
+            mode="lines",
+            name=run1
+        ))
+        fig.add_trace(go.Scatter(
+            y=df2["metrics/mAP50(B)"],
+            mode="lines",
+            name=run2
+        ))
+
+        fig.update_layout(title="mAP50 Comparison")
+        st.plotly_chart(fig)
+
+    else:
+        st.warning("Run files not found.")
