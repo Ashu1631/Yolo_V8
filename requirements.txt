@@ -1,12 +1,11 @@
 streamlit
 ultralytics
-opencv-python-headless
+opencv-python
 pandas
 numpy
 plotly
-scikit-learn
-reportlab
-matplotlib
-seaborn
 torch
 torchvision
+pillow
+pytorch-grad-cam
+reportlab
