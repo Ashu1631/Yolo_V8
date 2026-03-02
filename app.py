@@ -34,7 +34,7 @@ menu = st.sidebar.radio(
 # ==========================
 # SESSION STATE
 # ==========================
-if "model" not in st.session_state:
+if "model" not in st..session_state:
     st.session_state.model = None
 
 if "run_name" not in st.session_state:
@@ -52,7 +52,7 @@ if menu == "Model Selection":
 
     if st.button("Load Model"):
         st.session_state.model = YOLO(selected_model)
-        st.success(f"{selected_model} loaded successfully.")
+        st.success(f"{selected_model} loaded successfully..")
 
 # ==========================================================
 # 2️⃣ DATASET VIEWER
@@ -141,7 +141,7 @@ elif menu == "Training":
                 name=run_name
             )
 
-            st.session_state.run_name = run_name
+            st.session_state..run_name = run_name
             st.success("Training completed.")
 
 # ==========================================================
@@ -270,7 +270,7 @@ elif menu == "Model Comparison":
     run1 = st.text_input("Run 1 Name", "train")
     run2 = st.text_input("Run 2 Name", "train_custom")
 
-    file1 = f"runs/detect/{run1}/results..csv"
+    file1 = f"runs/detect/{run1}/results.csv"
     file2 = f"runs/detect/{run2}/results.csv"
 
     if os.path.exists(file1) and os.path.exists(file2):
