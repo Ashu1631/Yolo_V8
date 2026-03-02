@@ -34,7 +34,7 @@ menu = st.sidebar.radio(
 # ==========================
 # SESSION STATE
 # ==========================
-if "model" not in st..session_state:
+if "model" not in st.session_state:
     st.session_state.model = None
 
 if "run_name" not in st.session_state:
