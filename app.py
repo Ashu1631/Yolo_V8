@@ -4,6 +4,7 @@ import yaml
 import pandas as pd
 from ultralytics import YOLO
 import tempfile
+import gc
 
 # -----------------------------
 # PAGE CONFIG
@@ -32,19 +33,17 @@ h1,h2,h3,h4 {color: #00FFFF;}
 # -----------------------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
-
 if "selected_model" not in st.session_state:
     st.session_state.selected_model = None
-
 if "page" not in st.session_state:
     st.session_state.page = "Model Selection"
 
 # -----------------------------
-# LOAD USERS (NESTED YAML SUPPORT)
+# LOAD USERS
 # -----------------------------
 with open("users.yaml") as file:
     users_yaml = yaml.safe_load(file)
-    users = {k.strip(): v['password'].strip() for k, v in users_yaml['users'].items()}
+    users = {k.strip(): v['password'].strip() for k,v in users_yaml['users'].items()}
 
 # -----------------------------
 # LOGIN FUNCTION
@@ -72,12 +71,19 @@ st.sidebar.title("🚀 YOLOv8 Enterprise Dashboard")
 st.session_state.page = st.sidebar.radio(
     "Navigation",
     ["Model Selection", "Upload & Detect", "Evaluation Dashboard"],
-    index=["Model Selection", "Upload & Detect", "Evaluation Dashboard"].index(st.session_state.page)
+    index=["Model Selection","Upload & Detect","Evaluation Dashboard"].index(st.session_state.page)
 )
 page = st.session_state.page
 
 # -----------------------------
-# MODEL SELECTION
+# MODEL LOADING (CACHED)
+# -----------------------------
+@st.cache_resource
+def load_model(path):
+    return YOLO(path)
+
+# -----------------------------
+# MODEL SELECTION PAGE
 # -----------------------------
 if page == "Model Selection":
     st.title("📦 Model Selection")
@@ -87,6 +93,7 @@ if page == "Model Selection":
         if selected:
             st.session_state.selected_model = selected
             st.success(f"Selected Model: {selected}")
+            # Auto switch page
             st.session_state.page = "Upload & Detect"
             st.experimental_rerun()
     else:
@@ -104,14 +111,16 @@ if page == "Upload & Detect":
     option = st.radio("Choose Input Type", ["Upload Image/Video", "Use Dataset Folder"])
     model_path = os.path.join(os.getcwd(), st.session_state.selected_model)
 
-    # SAFE MODEL LOADING
+    # Safe model loading
     try:
-        model = YOLO(model_path)
+        model = load_model(model_path)
     except Exception as e:
-        st.error(f"Error loading model '{st.session_state.selected_model}': {e}")
+        st.error(f"Error loading model: {e}")
         st.stop()
 
-    # Upload File
+    # -----------------
+    # Upload Image/Video
+    # -----------------
     if option == "Upload Image/Video":
         uploaded_file = st.file_uploader("Upload Image or Video", type=["jpg","png","jpeg","mp4"])
         if uploaded_file:
@@ -120,31 +129,37 @@ if page == "Upload & Detect":
                 f.write(uploaded_file.read())
             st.info("Running Detection...")
             try:
-                results = model(tfile_path)
+                results = model(tfile_path, stream=True)
                 for r in results:
                     im_array = r.plot()
                     if im_array is not None:
                         st.image(im_array, caption="Detection Result", use_container_width=True)
+                        del im_array
+                        gc.collect()
                     else:
                         st.warning("Could not generate detection result image.")
             except Exception as e:
                 st.error(f"Error running detection: {e}")
 
+    # -----------------
     # Dataset Folder
+    # -----------------
     if option == "Use Dataset Folder":
         dataset_path = "datasets"
         if os.path.exists(dataset_path):
             st.success("Using images from datasets folder")
-            images = [os.path.join(dataset_path, f) for f in os.listdir(dataset_path) if f.lower().endswith((".jpg","png","jpeg"))]
+            images = [os.path.join(dataset_path,f) for f in os.listdir(dataset_path) if f.lower().endswith((".jpg","png","jpeg"))]
             if not images:
                 st.warning("No valid images in dataset folder!")
             for img_path in images:
                 try:
-                    results = model(img_path)
+                    results = model(img_path, stream=True)
                     for r in results:
                         im_array = r.plot()
                         if im_array is not None:
                             st.image(im_array, caption=os.path.basename(img_path), use_container_width=True)
+                            del im_array
+                            gc.collect()
                         else:
                             st.warning(f"Could not generate image for {os.path.basename(img_path)}")
                 except Exception as e:
@@ -165,16 +180,9 @@ if page == "Evaluation Dashboard":
     metrics_file = os.path.join(analysis_path, "results.csv")
     if os.path.exists(metrics_file):
         df = pd.read_csv(metrics_file)
-
         # Column-safe
         df.columns = [c.strip().lower().replace('-', '_') for c in df.columns]
-        column_map = {
-            'mAP50': 'map50',
-            'mAP50-95': 'map50_95',
-            'precision': 'precision',
-            'recall': 'recall',
-            'loss': 'loss'
-        }
+        column_map = {'mAP50':'map50','mAP50-95':'map50_95','precision':'precision','recall':'recall','loss':'loss'}
         missing_cols = [v for k,v in column_map.items() if v not in df.columns]
         if missing_cols:
             st.error(f"Missing columns in CSV: {missing_cols}")
@@ -190,27 +198,27 @@ if page == "Evaluation Dashboard":
             col1_img, col2_img = st.columns(2)
             with col1_img:
                 for fname in ["results.png","PR_curve.png","F1_curve.png"]:
-                    fpath = os.path.join(analysis_path, fname)
+                    fpath = os.path.join(analysis_path,fname)
                     if os.path.exists(fpath):
                         st.image(fpath, caption=fname)
             with col2_img:
-                fpath = os.path.join(analysis_path, "confusion_matrix.png")
+                fpath = os.path.join(analysis_path,"confusion_matrix.png")
                 if os.path.exists(fpath):
                     st.image(fpath, caption="Confusion Matrix")
 
-            # Display metric charts
+            # Training metric charts
             st.subheader("📈 Training Metrics Over Epochs")
             st.line_chart(df[[column_map['loss']]].rename(columns={column_map['loss']:'Loss'}))
             st.line_chart(df[[column_map['precision']]].rename(columns={column_map['precision']:'Precision'}))
             st.line_chart(df[[column_map['recall']]].rename(columns={column_map['recall']:'Recall'}))
 
             # Download CSV
-            with open(metrics_file, "rb") as file:
+            with open(metrics_file,"rb") as file:
                 st.download_button("⬇ Download Results CSV", data=file, file_name="results.csv")
 
-            # Download analysis images
+            # Download images
             for fname in ["results.png","confusion_matrix.png","PR_curve.png","F1_curve.png"]:
-                fpath = os.path.join(analysis_path, fname)
+                fpath = os.path.join(analysis_path,fname)
                 if os.path.exists(fpath):
-                    with open(fpath, "rb") as file:
+                    with open(fpath,"rb") as file:
                         st.download_button(f"⬇ Download {fname}", data=file, file_name=fname)
