@@ -41,7 +41,6 @@ if "selected_model" not in st.session_state:
 # -----------------------------
 with open("users.yaml") as file:
     users_yaml = yaml.safe_load(file)
-    # Flatten nested dict: username -> password
     users = {k.strip(): v['password'].strip() for k, v in users_yaml['users'].items()}
 
 # -----------------------------
@@ -95,7 +94,14 @@ if page == "Upload & Detect":
         st.stop()
 
     option = st.radio("Choose Input Type", ["Upload Image/Video", "Use Dataset Folder"])
-    model = YOLO(st.session_state.selected_model)
+    model_path = os.path.join(os.getcwd(), st.session_state.selected_model)
+
+    # SAFE MODEL LOADING
+    try:
+        model = YOLO(model_path)
+    except Exception as e:
+        st.error(f"Error loading model '{st.session_state.selected_model}': {e}")
+        st.stop()
 
     # Upload File
     if option == "Upload Image/Video":
@@ -135,16 +141,17 @@ if page == "Evaluation Dashboard":
         st.error("Analysis folder not found!")
         st.stop()
 
-    metrics_file = f"{analysis_path}/results.csv"
+    metrics_file = os.path.join(analysis_path, "results.csv")
     if os.path.exists(metrics_file):
         df = pd.read_csv(metrics_file)
-        latest = df.iloc[-1]
+        latest = df.iloc[-1]  # last epoch metrics
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("mAP50", f"{latest['mAP50']*100:.2f}%")
         col2.metric("mAP50-95", f"{latest['mAP50-95']*100:.2f}%")
         col3.metric("Precision", f"{latest['precision']*100:.2f}%")
         col4.metric("Recall", f"{latest['recall']*100:.2f}%")
 
+    # Display images
     col1, col2 = st.columns(2)
     with col1:
         for fname in ["results.png", "PR_curve.png", "F1_curve.png"]:
@@ -156,15 +163,18 @@ if page == "Evaluation Dashboard":
         if os.path.exists(fpath):
             st.image(fpath, caption="Confusion Matrix")
 
+    # Display separate metric charts
     if os.path.exists(metrics_file):
         st.subheader("📈 Training Metrics Over Epochs")
         st.line_chart(df[['loss']].rename(columns={'loss':'Loss'}))
         st.line_chart(df[['precision']].rename(columns={'precision':'Precision'}))
         st.line_chart(df[['recall']].rename(columns={'recall':'Recall'}))
 
+        # Download CSV
         with open(metrics_file, "rb") as file:
             st.download_button("⬇ Download Results CSV", data=file, file_name="results.csv")
 
+    # Download analysis images
     for fname in ["results.png", "confusion_matrix.png", "PR_curve.png", "F1_curve.png"]:
         fpath = os.path.join(analysis_path, fname)
         if os.path.exists(fpath):
