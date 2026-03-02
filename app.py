@@ -1,173 +1,203 @@
 import streamlit as st
-import pandas as pd
 import os
-import plotly.express as px
+import yaml
+import pandas as pd
 from ultralytics import YOLO
 from PIL import Image
+import tempfile
 
-# ==========================================================
+# -----------------------------
 # PAGE CONFIG
-# ==========================================================
-st.set_page_config(page_title="YOLOv8 Enterprise Dashboard", layout="wide")
-
-st.sidebar.title("🚀 YOLOv8 Enterprise Dashboard")
-
-menu = st.sidebar.radio(
-    "Navigation",
-    [
-        "Model Selection",
-        "Upload & Detect",
-        "Evaluation Dashboard"
-    ]
+# -----------------------------
+st.set_page_config(
+    page_title="YOLOv8 Enterprise Dashboard",
+    page_icon="🚀",
+    layout="wide"
 )
 
-# ==========================================================
-# SESSION STATE
-# ==========================================================
-if "model" not in st.session_state:
-    st.session_state.model = None
+# -----------------------------
+# CUSTOM DARK STYLE (NO COLOR ISSUE)
+# -----------------------------
+st.markdown("""
+<style>
+.stApp {
+    background-color: #0E1117;
+    color: white;
+}
+h1, h2, h3 {
+    color: #00FFFF;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# ==========================================================
-# 1️⃣ MODEL SELECTION
-# ==========================================================
-if menu == "Model Selection":
+# -----------------------------
+# SESSION INIT
+# -----------------------------
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-    st.header("📦 Model Selection")
+if "selected_model" not in st.session_state:
+    st.session_state.selected_model = None
 
-    # Default official YOLO models
-    default_models = ["yolov8n.pt", "yolov8s.pt", "yolov8m.pt"]
+# -----------------------------
+# LOAD USERS
+# -----------------------------
+with open("users.yaml") as file:
+    users = yaml.safe_load(file)
 
-    # Absolute path for root best.pt
-    root_best_path = os.path.join(os.getcwd(), "best.pt")
+# -----------------------------
+# LOGIN FUNCTION
+# -----------------------------
+def login():
+    st.title("🔐 Login Required")
 
-    model_options = default_models.copy()
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
 
-    # Add root best.pt if exists
-    if os.path.isfile(root_best_path):
-        model_options.append("best.pt")
-
-    model_choice = st.selectbox("Select Model", model_options)
-
-    if st.button("Load Model"):
-
-        try:
-            if model_choice == "best.pt":
-                model_path = root_best_path
-            else:
-                model_path = model_choice
-
-            st.session_state.model = YOLO(model_path)
-            st.success(f"Model loaded successfully: {model_choice}")
-
-        except Exception as e:
-            st.error(f"Model loading failed: {str(e)}")
-
-    # Debug info (can remove later)
-    st.write("Current Directory:", os.getcwd())
-    st.write("Available Files:", os.listdir())
-
-# ==========================================================
-# 2️⃣ UPLOAD & DETECT
-# ==========================================================
-elif menu == "Upload & Detect":
-
-    st.header("📤 Upload Image for Detection")
-
-    if st.session_state.model is None:
-        st.warning("Please load a model first.")
-    else:
-        uploaded_file = st.file_uploader(
-            "Upload Image",
-            type=["jpg", "jpeg", "png"]
-        )
-
-        if uploaded_file is not None:
-            image = Image.open(uploaded_file)
-            st.image(image, caption="Original Image")
-
-            results = st.session_state.model(image)
-            annotated = results[0].plot()
-
-            st.image(annotated, caption="Detection Result")
-
-# ==========================================================
-# 3️⃣ EVALUATION DASHBOARD
-# ==========================================================
-elif menu == "Evaluation Dashboard":
-
-    st.header("📈 Evaluation Dashboard")
-
-    runs_path = "runs/detect"
-
-    if not os.path.exists(runs_path):
-        st.info("No runs/detect folder found.")
-    else:
-
-        run_folders = os.listdir(runs_path)
-
-        if not run_folders:
-            st.info("No training runs available.")
+    if st.button("Login"):
+        if username in users and users[username] == password:
+            st.session_state.logged_in = True
+            st.success("Login Successful ✅")
+            st.rerun()
         else:
+            st.error("Invalid Credentials ❌")
 
-            selected_run = st.selectbox("Select Run Folder", run_folders)
-            run_path = os.path.join(runs_path, selected_run)
+# -----------------------------
+# LOGIN CHECK
+# -----------------------------
+if not st.session_state.logged_in:
+    login()
+    st.stop()
 
-            results_csv = os.path.join(run_path, "results.csv")
-            results_png = os.path.join(run_path, "results.png")
-            pr_curve = os.path.join(run_path, "BoxPR_curve.png")
-            f1_curve = os.path.join(run_path, "BoxF1_curve.png")
-            confusion_png = os.path.join(run_path, "confusion_matrix.png")
-            best_model = os.path.join(run_path, "weights", "best.pt")
+# -----------------------------
+# SIDEBAR NAVIGATION
+# -----------------------------
+st.sidebar.title("🚀 YOLOv8 Enterprise Dashboard")
 
-            # CSV Metrics
-            if os.path.exists(results_csv):
+page = st.sidebar.radio(
+    "Navigation",
+    ["Model Selection", "Upload & Detect", "Evaluation Dashboard"]
+)
 
-                df = pd.read_csv(results_csv)
+# -----------------------------
+# MODEL SELECTION
+# -----------------------------
+if page == "Model Selection":
+    st.title("📦 Model Selection")
 
-                col1, col2, col3 = st.columns(3)
+    model_files = [f for f in os.listdir() if f.endswith(".pt")]
 
-                col1.metric("Final mAP50",
-                            f"{df['metrics/mAP50(B)'].iloc[-1]:.2f}")
-                col2.metric("Final Recall",
-                            f"{df['metrics/recall(B)'].iloc[-1]:.2f}")
-                col3.metric("Final Precision",
-                            f"{df['metrics/precision(B)'].iloc[-1]:.2f}")
+    if model_files:
+        selected = st.selectbox("Select YOLO Model", model_files)
+        st.session_state.selected_model = selected
+        st.success(f"Selected Model: {selected}")
+    else:
+        st.error("No .pt model files found!")
 
-                st.plotly_chart(
-                    px.line(df,
-                            y="metrics/mAP50(B)",
-                            title="mAP50 Curve")
+# -----------------------------
+# UPLOAD & DETECT
+# -----------------------------
+if page == "Upload & Detect":
+
+    st.title("📤 Upload & Detect")
+
+    if not st.session_state.selected_model:
+        st.warning("⚠ Please select model first.")
+        st.stop()
+
+    option = st.radio("Choose Input Type", ["Upload Image/Video", "Use Dataset Folder"])
+
+    model = YOLO(st.session_state.selected_model)
+
+    # ---- Upload File ----
+    if option == "Upload Image/Video":
+        uploaded_file = st.file_uploader("Upload Image or Video", type=["jpg", "png", "jpeg", "mp4"])
+
+        if uploaded_file:
+            tfile = tempfile.NamedTemporaryFile(delete=False)
+            tfile.write(uploaded_file.read())
+
+            st.info("Running Detection...")
+
+            results = model(tfile.name)
+
+            for r in results:
+                im_array = r.plot()
+                st.image(im_array, caption="Detection Result", use_container_width=True)
+
+    # ---- Dataset Folder ----
+    if option == "Use Dataset Folder":
+        dataset_path = "datasets"
+
+        if os.path.exists(dataset_path):
+            st.success("Using images from datasets folder")
+
+            images = [os.path.join(dataset_path, f)
+                      for f in os.listdir(dataset_path)
+                      if f.endswith((".jpg", ".png", ".jpeg"))]
+
+            for img_path in images:
+                results = model(img_path)
+                for r in results:
+                    im_array = r.plot()
+                    st.image(im_array, caption=os.path.basename(img_path), use_container_width=True)
+        else:
+            st.error("Datasets folder not found!")
+
+# -----------------------------
+# EVALUATION DASHBOARD
+# -----------------------------
+if page == "Evaluation Dashboard":
+
+    st.title("📊 Evaluation Dashboard")
+
+    analysis_path = "analysis"
+
+    if not os.path.exists(analysis_path):
+        st.error("Analysis folder not found!")
+        st.stop()
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if os.path.exists(f"{analysis_path}/results.png"):
+            st.image(f"{analysis_path}/results.png", caption="Training Results")
+
+        if os.path.exists(f"{analysis_path}/PR_curve.png"):
+            st.image(f"{analysis_path}/PR_curve.png", caption="PR Curve")
+
+        if os.path.exists(f"{analysis_path}/F1_curve.png"):
+            st.image(f"{analysis_path}/F1_curve.png", caption="F1 Curve")
+
+    with col2:
+        if os.path.exists(f"{analysis_path}/confusion_matrix.png"):
+            st.image(f"{analysis_path}/confusion_matrix.png", caption="Confusion Matrix")
+
+    # CSV Metrics
+    if os.path.exists(f"{analysis_path}/results.csv"):
+        df = pd.read_csv(f"{analysis_path}/results.csv")
+        st.subheader("📈 Training Metrics")
+        st.line_chart(df)
+
+        with open(f"{analysis_path}/results.csv", "rb") as file:
+            st.download_button(
+                label="⬇ Download Results CSV",
+                data=file,
+                file_name="results.csv"
+            )
+
+    # Download Images
+    for file_name in [
+        "results.png",
+        "confusion_matrix.png",
+        "PR_curve.png",
+        "F1_curve.png"
+    ]:
+        file_path = f"{analysis_path}/{file_name}"
+        if os.path.exists(file_path):
+            with open(file_path, "rb") as file:
+                st.download_button(
+                    label=f"⬇ Download {file_name}",
+                    data=file,
+                    file_name=file_name
                 )
-
-                st.plotly_chart(
-                    px.line(df,
-                            y="train/box_loss",
-                            title="Loss Curve")
-                )
-
-            else:
-                st.warning("results.csv not found.")
-
-            # Show images
-            st.subheader("📊 Training Visualizations")
-
-            if os.path.exists(results_png):
-                st.image(results_png, caption="Results Overview")
-
-            if os.path.exists(pr_curve):
-                st.image(pr_curve, caption="Precision-Recall Curve")
-
-            if os.path.exists(f1_curve):
-                st.image(f1_curve, caption="F1 Curve")
-
-            if os.path.exists(confusion_png):
-                st.image(confusion_png, caption="Confusion Matrix")
-
-            # Download trained best model
-            if os.path.exists(best_model):
-                with open(best_model, "rb") as f:
-                    st.download_button(
-                        "⬇ Download Trained best.pt",
-                        f,
-                        file_name="best.pt"
-                    )
