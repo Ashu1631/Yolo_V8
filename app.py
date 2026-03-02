@@ -61,9 +61,6 @@ def login():
         else:
             st.error("Invalid Credentials ❌")
 
-# -----------------------------
-# LOGIN CHECK
-# -----------------------------
 if not st.session_state.logged_in:
     login()
     st.stop()
@@ -90,7 +87,6 @@ if page == "Model Selection":
         if selected:
             st.session_state.selected_model = selected
             st.success(f"Selected Model: {selected}")
-            # Automatically switch page
             st.session_state.page = "Upload & Detect"
             st.experimental_rerun()
     else:
@@ -117,40 +113,47 @@ if page == "Upload & Detect":
 
     # Upload File
     if option == "Upload Image/Video":
-        uploaded_file = st.file_uploader("Upload Image or Video", type=["jpg", "png", "jpeg", "mp4"])
+        uploaded_file = st.file_uploader("Upload Image or Video", type=["jpg","png","jpeg","mp4"])
         if uploaded_file:
-            tfile = tempfile.NamedTemporaryFile(delete=False)
-            tfile.write(uploaded_file.read())
+            tfile_path = os.path.join(tempfile.gettempdir(), uploaded_file.name)
+            with open(tfile_path, "wb") as f:
+                f.write(uploaded_file.read())
             st.info("Running Detection...")
-            results = model(tfile.name)
-            for r in results:
-                im_array = r.plot()
-                if im_array is not None:
-                    st.image(im_array, caption="Detection Result", use_container_width=True)
-                else:
-                    st.warning("Could not generate detection result image.")
+            try:
+                results = model(tfile_path)
+                for r in results:
+                    im_array = r.plot()
+                    if im_array is not None:
+                        st.image(im_array, caption="Detection Result", use_container_width=True)
+                    else:
+                        st.warning("Could not generate detection result image.")
+            except Exception as e:
+                st.error(f"Error running detection: {e}")
 
     # Dataset Folder
     if option == "Use Dataset Folder":
         dataset_path = "datasets"
         if os.path.exists(dataset_path):
             st.success("Using images from datasets folder")
-            images = [os.path.join(dataset_path, f)
-                      for f in os.listdir(dataset_path)
-                      if f.lower().endswith((".jpg", ".png", ".jpeg"))]
+            images = [os.path.join(dataset_path, f) for f in os.listdir(dataset_path) if f.lower().endswith((".jpg","png","jpeg"))]
+            if not images:
+                st.warning("No valid images in dataset folder!")
             for img_path in images:
-                results = model(img_path)
-                for r in results:
-                    im_array = r.plot()
-                    if im_array is not None:
-                        st.image(im_array, caption=os.path.basename(img_path), use_container_width=True)
-                    else:
-                        st.warning(f"Could not generate image for {os.path.basename(img_path)}")
+                try:
+                    results = model(img_path)
+                    for r in results:
+                        im_array = r.plot()
+                        if im_array is not None:
+                            st.image(im_array, caption=os.path.basename(img_path), use_container_width=True)
+                        else:
+                            st.warning(f"Could not generate image for {os.path.basename(img_path)}")
+                except Exception as e:
+                    st.error(f"Error processing {os.path.basename(img_path)}: {e}")
         else:
             st.error("Datasets folder not found!")
 
 # -----------------------------
-# EVALUATION DASHBOARD (COLUMN-SAFE)
+# EVALUATION DASHBOARD
 # -----------------------------
 if page == "Evaluation Dashboard":
     st.title("📊 Evaluation Dashboard")
@@ -163,26 +166,30 @@ if page == "Evaluation Dashboard":
     if os.path.exists(metrics_file):
         df = pd.read_csv(metrics_file)
 
-        # Strip whitespace from columns
-        df.columns = [c.strip() for c in df.columns]
-
-        # Check required columns
-        required_cols = ["mAP50", "mAP50-95", "precision", "recall", "loss"]
-        missing_cols = [c for c in required_cols if c not in df.columns]
+        # Column-safe
+        df.columns = [c.strip().lower().replace('-', '_') for c in df.columns]
+        column_map = {
+            'mAP50': 'map50',
+            'mAP50-95': 'map50_95',
+            'precision': 'precision',
+            'recall': 'recall',
+            'loss': 'loss'
+        }
+        missing_cols = [v for k,v in column_map.items() if v not in df.columns]
         if missing_cols:
             st.error(f"Missing columns in CSV: {missing_cols}")
         else:
             latest = df.iloc[-1]
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("mAP50", f"{latest['mAP50']*100:.2f}%")
-            col2.metric("mAP50-95", f"{latest['mAP50-95']*100:.2f}%")
-            col3.metric("Precision", f"{latest['precision']*100:.2f}%")
-            col4.metric("Recall", f"{latest['recall']*100:.2f}%")
+            col1.metric("mAP50", f"{latest[column_map['mAP50']]*100:.2f}%")
+            col2.metric("mAP50-95", f"{latest[column_map['mAP50-95']]*100:.2f}%")
+            col3.metric("Precision", f"{latest[column_map['precision']]*100:.2f}%")
+            col4.metric("Recall", f"{latest[column_map['recall']]*100:.2f}%")
 
             # Display images
             col1_img, col2_img = st.columns(2)
             with col1_img:
-                for fname in ["results.png", "PR_curve.png", "F1_curve.png"]:
+                for fname in ["results.png","PR_curve.png","F1_curve.png"]:
                     fpath = os.path.join(analysis_path, fname)
                     if os.path.exists(fpath):
                         st.image(fpath, caption=fname)
@@ -191,18 +198,18 @@ if page == "Evaluation Dashboard":
                 if os.path.exists(fpath):
                     st.image(fpath, caption="Confusion Matrix")
 
-            # Display separate metric charts
+            # Display metric charts
             st.subheader("📈 Training Metrics Over Epochs")
-            st.line_chart(df[['loss']].rename(columns={'loss':'Loss'}))
-            st.line_chart(df[['precision']].rename(columns={'precision':'Precision'}))
-            st.line_chart(df[['recall']].rename(columns={'recall':'Recall'}))
+            st.line_chart(df[[column_map['loss']]].rename(columns={column_map['loss']:'Loss'}))
+            st.line_chart(df[[column_map['precision']]].rename(columns={column_map['precision']:'Precision'}))
+            st.line_chart(df[[column_map['recall']]].rename(columns={column_map['recall']:'Recall'}))
 
             # Download CSV
             with open(metrics_file, "rb") as file:
                 st.download_button("⬇ Download Results CSV", data=file, file_name="results.csv")
 
             # Download analysis images
-            for fname in ["results.png", "confusion_matrix.png", "PR_curve.png", "F1_curve.png"]:
+            for fname in ["results.png","confusion_matrix.png","PR_curve.png","F1_curve.png"]:
                 fpath = os.path.join(analysis_path, fname)
                 if os.path.exists(fpath):
                     with open(fpath, "rb") as file:
