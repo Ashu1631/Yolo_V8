@@ -38,10 +38,12 @@ if "selected_model" not in st.session_state:
     st.session_state.selected_model = None
 
 # -----------------------------
-# LOAD USERS
+# LOAD USERS (NESTED YAML SUPPORT)
 # -----------------------------
 with open("users.yaml") as file:
-    users = yaml.safe_load(file)
+    users_yaml = yaml.safe_load(file)
+    # Flatten nested dictionary: username -> password
+    users = {k: v['password'] for k, v in users_yaml['users'].items()}
 
 # -----------------------------
 # LOGIN FUNCTION
@@ -50,6 +52,7 @@ def login():
     st.title("🔐 Login Required")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
+
     if st.button("Login"):
         if username in users and users[username] == password:
             st.session_state.logged_in = True
@@ -138,40 +141,39 @@ if page == "Evaluation Dashboard":
     metrics_file = f"{analysis_path}/results.csv"
     if os.path.exists(metrics_file):
         df = pd.read_csv(metrics_file)
-        # Assuming df has columns: epoch, loss, precision, recall, mAP50, mAP50-95
-        latest = df.iloc[-1]
+        latest = df.iloc[-1]  # last epoch
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("mAP50", f"{latest['mAP50']*100:.2f}%")
         col2.metric("mAP50-95", f"{latest['mAP50-95']*100:.2f}%")
         col3.metric("Precision", f"{latest['precision']*100:.2f}%")
         col4.metric("Recall", f"{latest['recall']*100:.2f}%")
 
-    # ---- GRAPHS ----
+    # ---- IMAGE GRAPHS ----
     col1, col2 = st.columns(2)
     with col1:
-        if os.path.exists(f"{analysis_path}/results.png"):
-            st.image(f"{analysis_path}/results.png", caption="Training Results")
-        if os.path.exists(f"{analysis_path}/PR_curve.png"):
-            st.image(f"{analysis_path}/PR_curve.png", caption="PR Curve")
-        if os.path.exists(f"{analysis_path}/F1_curve.png"):
-            st.image(f"{analysis_path}/F1_curve.png", caption="F1 Curve")
+        for fname in ["results.png", "PR_curve.png", "F1_curve.png"]:
+            fpath = f"{analysis_path}/{fname}"
+            if os.path.exists(fpath):
+                st.image(fpath, caption=fname)
     with col2:
-        if os.path.exists(f"{analysis_path}/confusion_matrix.png"):
-            st.image(f"{analysis_path}/confusion_matrix.png", caption="Confusion Matrix")
+        fpath = f"{analysis_path}/confusion_matrix.png"
+        if os.path.exists(fpath):
+            st.image(fpath, caption="Confusion Matrix")
 
-    # ---- LOSS, PRECISION, RECALL GRAPHS ----
+    # ---- SEPARATE METRIC CHARTS ----
     if os.path.exists(metrics_file):
-        st.subheader("📈 Training Metrics")
+        st.subheader("📈 Training Metrics Over Epochs")
         st.line_chart(df[['loss']].rename(columns={'loss':'Loss'}))
         st.line_chart(df[['precision']].rename(columns={'precision':'Precision'}))
         st.line_chart(df[['recall']].rename(columns={'recall':'Recall'}))
 
+        # Download CSV
         with open(metrics_file, "rb") as file:
             st.download_button("⬇ Download Results CSV", data=file, file_name="results.csv")
 
-    # ---- DOWNLOAD IMAGES ----
-    for file_name in ["results.png","confusion_matrix.png","PR_curve.png","F1_curve.png"]:
-        file_path = f"{analysis_path}/{file_name}"
-        if os.path.exists(file_path):
-            with open(file_path,"rb") as file:
-                st.download_button(f"⬇ Download {file_name}", data=file, file_name=file_name)
+    # ---- DOWNLOAD ANALYSIS IMAGES ----
+    for fname in ["results.png", "confusion_matrix.png", "PR_curve.png", "F1_curve.png"]:
+        fpath = f"{analysis_path}/{fname}"
+        if os.path.exists(fpath):
+            with open(fpath, "rb") as file:
+                st.download_button(f"⬇ Download {fname}", data=file, file_name=fname)
