@@ -1,37 +1,51 @@
-🚦 YOLOv8 Traffic Vehicle Detection System
-📌 Project Overview
+# 🚀 YOLOv8 Enterprise AI Platform
 
-This project uses YOLOv8 for real-time vehicle detection and traffic analysis.
-It performs:
+Built using Streamlit + Ultralytics YOLOv8
 
-Vehicle Detection
+## Features
 
-Line Crossing Counting
+✔ Model Selection
+✔ Dataset Analytics
+✔ Image Detection
+✔ Real-time Camera Detection
+✔ Training Dashboard
+✔ Auto Hyperparameter Tuning
+✔ Evaluation Metrics
+✔ Grad-CAM Explainability
 
-Traffic Density Analysis
+---
 
-Training Performance Analytics
+## Installation
 
-Auto PDF Report Generation
+pip install -r requirements.txt
 
-🛠 Technologies Used
+---
 
-Python
+## Run Application
 
-YOLOv8 (Ultralytics)
+streamlit run app.py
 
-OpenCV
+---
 
-Matplotlib
+## Folder Structure
 
-Pandas
+data/
+ ├── images/
+ ├── labels/
+ └── data.yaml
 
-📊 Model Performance
+runs/
+ └── detect/
 
-mAP@0.5: XX
+---
 
-Precision: XX
+## Advanced Capabilities
 
-Recall: XX
+- Genetic Hyperparameter Evolution
+- Per-Class Evaluation
+- Production Readiness Indicator
+- Model Explainability
 
-(Replace with your values)
+---
+
+Developed for Enterprise Object Detection Systems
