@@ -141,7 +141,7 @@ elif menu == "Training":
                 name=run_name
             )
 
-            st.session_state..run_name = run_name
+            st.session_state.run_name = run_name
             st.success("Training completed.")
 
 # ==========================================================
