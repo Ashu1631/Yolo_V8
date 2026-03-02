@@ -3,7 +3,6 @@ import os
 import yaml
 import pandas as pd
 from ultralytics import YOLO
-from PIL import Image
 import tempfile
 
 # -----------------------------
@@ -42,8 +41,8 @@ if "selected_model" not in st.session_state:
 # -----------------------------
 with open("users.yaml") as file:
     users_yaml = yaml.safe_load(file)
-    # Flatten nested dictionary: username -> password
-    users = {k: v['password'] for k, v in users_yaml['users'].items()}
+    # Flatten nested dict: username -> password
+    users = {k.strip(): v['password'].strip() for k, v in users_yaml['users'].items()}
 
 # -----------------------------
 # LOGIN FUNCTION
@@ -52,12 +51,11 @@ def login():
     st.title("🔐 Login Required")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
-
     if st.button("Login"):
-        if username in users and users[username] == password:
+        if username.strip() in users and users[username.strip()] == password.strip():
             st.session_state.logged_in = True
             st.success("Login Successful ✅")
-            st.rerun()
+            st.experimental_rerun()
         else:
             st.error("Invalid Credentials ❌")
 
@@ -99,7 +97,7 @@ if page == "Upload & Detect":
     option = st.radio("Choose Input Type", ["Upload Image/Video", "Use Dataset Folder"])
     model = YOLO(st.session_state.selected_model)
 
-    # ---- Upload File ----
+    # Upload File
     if option == "Upload Image/Video":
         uploaded_file = st.file_uploader("Upload Image or Video", type=["jpg", "png", "jpeg", "mp4"])
         if uploaded_file:
@@ -111,14 +109,14 @@ if page == "Upload & Detect":
                 im_array = r.plot()
                 st.image(im_array, caption="Detection Result", use_container_width=True)
 
-    # ---- Dataset Folder ----
+    # Dataset Folder
     if option == "Use Dataset Folder":
         dataset_path = "datasets"
         if os.path.exists(dataset_path):
             st.success("Using images from datasets folder")
             images = [os.path.join(dataset_path, f)
                       for f in os.listdir(dataset_path)
-                      if f.endswith((".jpg", ".png", ".jpeg"))]
+                      if f.lower().endswith((".jpg", ".png", ".jpeg"))]
             for img_path in images:
                 results = model(img_path)
                 for r in results:
@@ -137,43 +135,38 @@ if page == "Evaluation Dashboard":
         st.error("Analysis folder not found!")
         st.stop()
 
-    # ---- METRIC CARDS ----
     metrics_file = f"{analysis_path}/results.csv"
     if os.path.exists(metrics_file):
         df = pd.read_csv(metrics_file)
-        latest = df.iloc[-1]  # last epoch
+        latest = df.iloc[-1]
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("mAP50", f"{latest['mAP50']*100:.2f}%")
         col2.metric("mAP50-95", f"{latest['mAP50-95']*100:.2f}%")
         col3.metric("Precision", f"{latest['precision']*100:.2f}%")
         col4.metric("Recall", f"{latest['recall']*100:.2f}%")
 
-    # ---- IMAGE GRAPHS ----
     col1, col2 = st.columns(2)
     with col1:
         for fname in ["results.png", "PR_curve.png", "F1_curve.png"]:
-            fpath = f"{analysis_path}/{fname}"
+            fpath = os.path.join(analysis_path, fname)
             if os.path.exists(fpath):
                 st.image(fpath, caption=fname)
     with col2:
-        fpath = f"{analysis_path}/confusion_matrix.png"
+        fpath = os.path.join(analysis_path, "confusion_matrix.png")
         if os.path.exists(fpath):
             st.image(fpath, caption="Confusion Matrix")
 
-    # ---- SEPARATE METRIC CHARTS ----
     if os.path.exists(metrics_file):
         st.subheader("📈 Training Metrics Over Epochs")
         st.line_chart(df[['loss']].rename(columns={'loss':'Loss'}))
         st.line_chart(df[['precision']].rename(columns={'precision':'Precision'}))
         st.line_chart(df[['recall']].rename(columns={'recall':'Recall'}))
 
-        # Download CSV
         with open(metrics_file, "rb") as file:
             st.download_button("⬇ Download Results CSV", data=file, file_name="results.csv")
 
-    # ---- DOWNLOAD ANALYSIS IMAGES ----
     for fname in ["results.png", "confusion_matrix.png", "PR_curve.png", "F1_curve.png"]:
-        fpath = f"{analysis_path}/{fname}"
+        fpath = os.path.join(analysis_path, fname)
         if os.path.exists(fpath):
             with open(fpath, "rb") as file:
                 st.download_button(f"⬇ Download {fname}", data=file, file_name=fname)
