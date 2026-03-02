@@ -1,7 +1,12 @@
 streamlit
-pyyaml
-pandas
-Pillow
-matplotlib
 ultralytics
-streamlit-autorefresh
+opencv-python-headless
+pandas
+numpy
+plotly
+scikit-learn
+reportlab
+matplotlib
+seaborn
+torch
+torchvision
