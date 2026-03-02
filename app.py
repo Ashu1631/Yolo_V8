@@ -61,7 +61,7 @@ elif menu == "Dataset Viewer":
 
     st.header("🖼 Dataset Viewer")
 
-    if st..session_state.model is None:
+    if st.session_state.model is None:
         st.warning("Load model first.")
     else:
         image_folder = "data/images"
