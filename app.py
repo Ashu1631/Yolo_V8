@@ -97,7 +97,7 @@ elif menu == "Upload & Detect":
 
             if "image" in uploaded_file.type:
                 file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-                image = cv2..imdecode(file_bytes, 1)
+                image = cv2.imdecode(file_bytes, 1)
 
                 results = st.session_state.model(image)
                 annotated = results[0].plot()
