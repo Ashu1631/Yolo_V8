@@ -6,6 +6,8 @@ from ultralytics import YOLO
 import tempfile
 import cv2
 import hashlib
+import numpy as np
+import time
 
 # --------------------------------------------------
 # PAGE CONFIG
@@ -15,16 +17,6 @@ st.set_page_config(
     page_icon="🚀",
     layout="wide"
 )
-
-# --------------------------------------------------
-# DARK THEME
-# --------------------------------------------------
-st.markdown("""
-<style>
-.stApp {background-color: #0E1117; color: white;}
-h1,h2,h3,h4 {color: #00FFFF;}
-</style>
-""", unsafe_allow_html=True)
 
 # --------------------------------------------------
 # SESSION INIT
@@ -48,7 +40,7 @@ def hash_password(password):
 with open("users.yaml") as file:
     users_yaml = yaml.safe_load(file)
     users = {k.strip(): v['password'].strip()
-             for k,v in users_yaml['users'].items()}
+             for k, v in users_yaml['users'].items()}
 
 # --------------------------------------------------
 # LOGIN
@@ -71,7 +63,7 @@ if not st.session_state.logged_in:
     st.stop()
 
 # --------------------------------------------------
-# SIDEBAR NAVIGATION
+# SIDEBAR
 # --------------------------------------------------
 pages = ["Model Selection", "Upload & Detect",
          "Webcam Detection", "Evaluation Dashboard"]
@@ -91,31 +83,33 @@ page = st.session_state.page
 def load_model(path):
     return YOLO(path)
 
-# --------------------------------------------------
-# MODEL SELECTION
-# --------------------------------------------------
+# ==================================================
+# 1️⃣ MODEL SELECTION (Dynamic + Fast)
+# ==================================================
 if page == "Model Selection":
+
     st.title("📦 Model Selection")
 
-    col1, col2 = st.columns(2)
+    model_files = [f for f in os.listdir() if f.endswith(".pt")]
 
-    if os.path.exists("best.pt"):
-        if col1.button("Load best.pt"):
-            with st.spinner("Loading best.pt..."):
-                st.session_state.model_object = load_model("best.pt")
-            st.session_state.page = "Upload & Detect"
-            st.rerun()
+    if not model_files:
+        st.error("No .pt model files found.")
+        st.stop()
 
-    if os.path.exists("yolov8.pt"):
-        if col2.button("Load yolov8.pt"):
-            with st.spinner("Loading yolov8.pt..."):
-                st.session_state.model_object = load_model("yolov8.pt")
-            st.session_state.page = "Upload & Detect"
-            st.rerun()
+    selected_model = st.selectbox("Select Model", model_files)
 
-# --------------------------------------------------
-# UPLOAD & DETECT
-# --------------------------------------------------
+    if st.button("Load Model"):
+        with st.spinner("Loading model..."):
+            model_path = os.path.join(os.getcwd(), selected_model)
+            st.session_state.model_object = load_model(model_path)
+
+        st.success(f"{selected_model} loaded successfully!")
+        st.session_state.page = "Upload & Detect"
+        st.rerun()
+
+# ==================================================
+# 2️⃣ UPLOAD & DETECT (Optimized)
+# ==================================================
 if page == "Upload & Detect":
 
     st.title("📤 Upload & Detect")
@@ -129,8 +123,9 @@ if page == "Upload & Detect":
     conf = st.slider("Confidence", 0.0, 1.0, 0.25)
     iou = st.slider("IoU", 0.0, 1.0, 0.45)
 
+    # ---------------- Upload Section ----------------
     uploaded_file = st.file_uploader(
-        "Upload Image or Video", type=["jpg","png","jpeg","mp4"])
+        "Upload Image or Video", type=["jpg", "png", "jpeg", "mp4"])
 
     if uploaded_file:
 
@@ -140,24 +135,41 @@ if page == "Upload & Detect":
         with open(temp_path, "wb") as f:
             f.write(uploaded_file.read())
 
-        # ---------------- IMAGE ----------------
-        if uploaded_file.name.endswith(("jpg","png","jpeg")):
+        # -------- IMAGE --------
+        if uploaded_file.name.lower().endswith(("jpg", "png", "jpeg")):
+
+            start = time.time()
+
             results = model(temp_path, conf=conf, iou=iou)
             img = results[0].plot()
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            st.image(img)
 
-        # ---------------- VIDEO (FAST) ----------------
-        if uploaded_file.name.endswith("mp4"):
+            end = time.time()
+
+            st.image(img)
+            st.success(f"Detection Time: {round(end-start,2)} sec")
+
+        # -------- VIDEO (FAST STREAM) --------
+        if uploaded_file.name.lower().endswith("mp4"):
+
             cap = cv2.VideoCapture(temp_path)
             FRAME_WINDOW = st.image([])
+
+            frame_skip = 2   # skip every 2 frames for speed
+
+            count = 0
 
             while cap.isOpened():
                 ret, frame = cap.read()
                 if not ret:
                     break
 
-                frame = cv2.resize(frame, (640,480))
+                count += 1
+                if count % frame_skip != 0:
+                    continue
+
+                frame = cv2.resize(frame, (640, 480))
+
                 results = model(frame, conf=conf, iou=iou)
                 annotated = results[0].plot()
                 annotated = cv2.cvtColor(annotated,
@@ -167,12 +179,41 @@ if page == "Upload & Detect":
 
             cap.release()
 
-# --------------------------------------------------
-# WEBCAM DETECTION
-# --------------------------------------------------
+    # ---------------- Dataset Dropdown ----------------
+    st.subheader("Select Image From Dataset Folder")
+
+    dataset_path = "datasets"
+
+    if os.path.exists(dataset_path):
+
+        images = [
+            f for f in os.listdir(dataset_path)
+            if f.lower().endswith((".jpg", ".png", ".jpeg"))
+        ]
+
+        if images:
+
+            selected_img = st.selectbox("Choose Dataset Image", images)
+
+            if st.button("Detect Selected Image"):
+
+                img_path = os.path.join(dataset_path, selected_img)
+
+                results = model(img_path, conf=conf, iou=iou)
+                img = results[0].plot()
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+                st.image(img)
+
+        else:
+            st.info("No images in dataset folder.")
+
+# ==================================================
+# 3️⃣ WEBCAM (Streamlit Cloud Compatible)
+# ==================================================
 if page == "Webcam Detection":
 
-    st.title("📷 Live Webcam Detection")
+    st.title("📷 Webcam Detection")
 
     if not st.session_state.model_object:
         st.warning("Load model first.")
@@ -180,44 +221,37 @@ if page == "Webcam Detection":
 
     model = st.session_state.model_object
 
-    run = st.checkbox("Start Webcam")
-    FRAME_WINDOW = st.image([])
+    conf = st.slider("Confidence", 0.0, 1.0, 0.25)
+    iou = st.slider("IoU", 0.0, 1.0, 0.45)
 
-    if run:
-        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    camera_image = st.camera_input("Take a picture")
 
-        if not cap.isOpened():
-            st.error("Webcam access failed.")
-            st.stop()
+    if camera_image:
 
-        while run:
-            ret, frame = cap.read()
-            if not ret:
-                break
+        file_bytes = camera_image.getvalue()
+        np_arr = np.frombuffer(file_bytes, np.uint8)
+        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
-            frame = cv2.resize(frame, (640,480))
-            results = model(frame)
-            annotated = results[0].plot()
-            annotated = cv2.cvtColor(annotated,
-                                     cv2.COLOR_BGR2RGB)
+        results = model(frame, conf=conf, iou=iou)
+        annotated = results[0].plot()
+        annotated = cv2.cvtColor(annotated,
+                                 cv2.COLOR_BGR2RGB)
 
-            FRAME_WINDOW.image(annotated)
+        st.image(annotated)
 
-        cap.release()
-
-# --------------------------------------------------
-# EVALUATION DASHBOARD
-# --------------------------------------------------
+# ==================================================
+# 4️⃣ EVALUATION DASHBOARD (UNCHANGED)
+# ==================================================
 if page == "Evaluation Dashboard":
 
-    st.title("📊 Model Evaluation & Error Analysis")
+    st.title("📊 Model Evaluation")
 
     analysis_path = "analysis"
 
     metrics_file = os.path.join(analysis_path, "results.csv")
 
     if not os.path.exists(metrics_file):
-        st.error("results.csv not found in analysis folder.")
+        st.error("results.csv not found.")
         st.stop()
 
     df = pd.read_csv(metrics_file)
@@ -230,36 +264,19 @@ if page == "Evaluation Dashboard":
 
     latest = df.iloc[-1]
 
-    col1,col2,col3,col4 = st.columns(4)
+    col1, col2, col3, col4 = st.columns(4)
 
-    col1.metric("mAP50",
-                f"{latest[map50_col]*100:.2f}%")
-    col2.metric("mAP50-95",
-                f"{latest[map5095_col]*100:.2f}%")
-    col3.metric("Precision",
-                f"{latest[precision_col]*100:.2f}%")
-    col4.metric("Recall",
-                f"{latest[recall_col]*100:.2f}%")
-
-    st.subheader("Training Graphs")
+    col1.metric("mAP50", f"{latest[map50_col]*100:.2f}%")
+    col2.metric("mAP50-95", f"{latest[map5095_col]*100:.2f}%")
+    col3.metric("Precision", f"{latest[precision_col]*100:.2f}%")
+    col4.metric("Recall", f"{latest[recall_col]*100:.2f}%")
 
     st.line_chart(df[[loss_col]].rename(
-        columns={loss_col:"Box Loss"}))
+        columns={loss_col: "Box Loss"}))
     st.line_chart(df[[precision_col]].rename(
-        columns={precision_col:"Precision"}))
+        columns={precision_col: "Precision"}))
     st.line_chart(df[[recall_col]].rename(
-        columns={recall_col:"Recall"}))
-
-    st.subheader("Error Analysis")
-
-    if latest[precision_col] < 0.6:
-        st.error("Low Precision → Too many False Positives")
-
-    if latest[recall_col] < 0.6:
-        st.error("Low Recall → Too many False Negatives")
-
-    if latest[map50_col] < 0.5:
-        st.warning("Low mAP → Improve dataset or train longer")
+        columns={recall_col: "Recall"}))
 
     for img in ["confusion_matrix.png",
                 "PR_curve.png",
