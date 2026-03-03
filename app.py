@@ -21,17 +21,34 @@ st.set_page_config(
 )
 
 # ==================================================
+# CUSTOM SIDEBAR STYLE
+# ==================================================
+st.markdown("""
+<style>
+div[role="radiogroup"] > label {
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+}
+div[role="radiogroup"] > label:hover {
+    background-color: #1f2937;
+}
+div[role="radiogroup"] > label[data-selected="true"] {
+    border: 2px solid #00FFFF;
+    background-color: #111827;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ==================================================
 # SESSION INIT
 # ==================================================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
-
 if "model_object" not in st.session_state:
     st.session_state.model_object = None
-
 if "selected_model" not in st.session_state:
     st.session_state.selected_model = None
-
 if "page" not in st.session_state:
     st.session_state.page = "Model Selection"
 
@@ -56,7 +73,6 @@ def login():
     st.title("🔐 Login Required")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
-
     if st.button("Login"):
         if username in users:
             stored = users[username]
@@ -70,7 +86,7 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ==================================================
-# SIDEBAR NAVIGATION (LOCKED STATE)
+# SIDEBAR NAVIGATION
 # ==================================================
 pages = ["Model Selection", "Upload & Detect",
          "Webcam Detection", "Evaluation Dashboard"]
@@ -95,28 +111,33 @@ if page == "Model Selection":
 
     model_files = [f for f in os.listdir() if f.endswith(".pt")]
 
-    if not model_files:
-        st.error("No .pt model files found.")
-        st.stop()
-
     selected_model = st.selectbox(
         "Please select the model",
-        ["-- Select Model --"] + model_files,
-        key="model_dropdown"
+        ["-- Select Model --"] + model_files
     )
 
     if selected_model != "-- Select Model --":
-
         if st.session_state.selected_model != selected_model:
-
             with st.spinner(f"Loading {selected_model}..."):
-                model_path = os.path.abspath(selected_model)
-                st.session_state.model_object = YOLO(model_path)
+                st.session_state.model_object = YOLO(selected_model)
                 st.session_state.selected_model = selected_model
-
-            st.success(f"{selected_model} loaded successfully!")
             st.session_state.page = "Upload & Detect"
             st.rerun()
+
+# ==================================================
+# DETECTION COUNT FUNCTION
+# ==================================================
+def show_detection_counts(results):
+    boxes = results[0].boxes
+    if boxes is not None and len(boxes.cls) > 0:
+        classes = boxes.cls.cpu().numpy()
+        names = results[0].names
+        counts = {}
+        for c in classes:
+            name = names[int(c)]
+            counts[name] = counts.get(name, 0) + 1
+        st.subheader("📊 Detection Counts")
+        st.json(counts)
 
 # ==================================================
 # UPLOAD & DETECT
@@ -137,11 +158,11 @@ if page == "Upload & Detect":
     uploaded_file = st.file_uploader(
         "Upload Image or Video", type=["jpg", "png", "jpeg", "mp4"])
 
-    if uploaded_file:
+    temp_path = None
 
+    if uploaded_file:
         temp_path = os.path.join(
             tempfile.gettempdir(), uploaded_file.name)
-
         with open(temp_path, "wb") as f:
             f.write(uploaded_file.read())
 
@@ -149,67 +170,45 @@ if page == "Upload & Detect":
         if uploaded_file.name.lower().endswith(("jpg", "png", "jpeg")):
             start = time.time()
             results = model(temp_path, conf=conf, iou=iou)
-            img = results[0].plot()
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = cv2.cvtColor(results[0].plot(), cv2.COLOR_BGR2RGB)
             end = time.time()
             st.image(img)
             st.success(f"Detection Time: {round(end-start,2)} sec")
+            show_detection_counts(results)
 
         # VIDEO
         if uploaded_file.name.lower().endswith("mp4"):
-
             cap = cv2.VideoCapture(temp_path)
             FRAME_WINDOW = st.image([])
-
-            frame_skip = 2
-            count = 0
-
             while cap.isOpened():
                 ret, frame = cap.read()
                 if not ret:
                     break
-
-                count += 1
-                if count % frame_skip != 0:
-                    continue
-
                 frame = cv2.resize(frame, (640, 480))
-
                 results = model(frame, conf=conf, iou=iou)
-                annotated = results[0].plot()
                 annotated = cv2.cvtColor(
-                    annotated, cv2.COLOR_BGR2RGB)
-
+                    results[0].plot(), cv2.COLOR_BGR2RGB)
                 FRAME_WINDOW.image(annotated)
-
             cap.release()
 
-    # DATASET DROPDOWN
-    st.subheader("Select Image From Dataset Folder")
+    # MODEL COMPARISON
+    st.subheader("🔬 Model Comparison")
+    compare = st.checkbox("Enable Model Comparison")
 
-    dataset_path = "datasets"
-
-    if os.path.exists(dataset_path):
-
-        images = [
-            f for f in os.listdir(dataset_path)
-            if f.lower().endswith((".jpg", ".png", ".jpeg"))
-        ]
-
-        if images:
-            selected_img = st.selectbox("Choose Dataset Image", images)
-
-            if st.button("Detect Selected Image"):
-                img_path = os.path.join(dataset_path, selected_img)
-                results = model(img_path, conf=conf, iou=iou)
-                img = results[0].plot()
-                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                st.image(img)
-        else:
-            st.info("No images found in datasets folder.")
+    if compare and temp_path and uploaded_file.name.lower().endswith(("jpg","png","jpeg")):
+        if os.path.exists("best.pt") and os.path.exists("yolov8n.pt"):
+            model_best = YOLO("best.pt")
+            model_nano = YOLO("yolov8n.pt")
+            res1 = model_best(temp_path, conf=conf, iou=iou)
+            res2 = model_nano(temp_path, conf=conf, iou=iou)
+            img1 = cv2.cvtColor(res1[0].plot(), cv2.COLOR_BGR2RGB)
+            img2 = cv2.cvtColor(res2[0].plot(), cv2.COLOR_BGR2RGB)
+            col1, col2 = st.columns(2)
+            col1.image(img1, caption="best.pt")
+            col2.image(img2, caption="yolov8n.pt")
 
 # ==================================================
-# WEBCAM LIVE (FIXED + FPS)
+# WEBCAM LIVE (FIXED + STUN + FPS)
 # ==================================================
 class YOLOVideoProcessor(VideoProcessorBase):
     def __init__(self, model):
@@ -218,11 +217,9 @@ class YOLOVideoProcessor(VideoProcessorBase):
 
     def recv(self, frame):
         img = frame.to_ndarray(format="bgr24")
-
         results = self.model(img, conf=0.25, iou=0.45)
         annotated = results[0].plot()
 
-        # FPS
         current_time = time.time()
         fps = 1 / (current_time - self.prev_time)
         self.prev_time = current_time
@@ -240,7 +237,6 @@ class YOLOVideoProcessor(VideoProcessorBase):
         return av.VideoFrame.from_ndarray(
             annotated, format="bgr24")
 
-
 if page == "Webcam Detection":
 
     st.title("📷 Live Webcam Detection")
@@ -255,6 +251,11 @@ if page == "Webcam Detection":
         key="yolo-live",
         video_processor_factory=lambda: YOLOVideoProcessor(model),
         media_stream_constraints={"video": True, "audio": False},
+        rtc_configuration={
+            "iceServers": [
+                {"urls": ["stun:stun.l.google.com:19302"]}
+            ]
+        },
     )
 
 # ==================================================
