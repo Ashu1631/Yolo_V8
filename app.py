@@ -21,21 +21,19 @@ st.set_page_config(
 )
 
 # ==================================================
-# CUSTOM SIDEBAR STYLE
+# SIDEBAR STYLE (HAND + ACTIVE BORDER)
 # ==================================================
 st.markdown("""
 <style>
-div[role="radiogroup"] > label {
-    cursor: pointer;
-    padding: 8px;
+.sidebar-btn button {
+    width: 100%;
     border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
 }
-div[role="radiogroup"] > label:hover {
-    background-color: #1f2937;
-}
-div[role="radiogroup"] > label[data-selected="true"] {
-    border: 2px solid #00FFFF;
-    background-color: #111827;
+.sidebar-active button {
+    border: 2px solid #00FFFF !important;
+    background-color: #111827 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -86,24 +84,30 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ==================================================
-# SIDEBAR NAVIGATION
+# SIDEBAR NAVIGATION (BUTTON BASED)
 # ==================================================
-pages = ["Model Selection", "Upload & Detect",
-         "Webcam Detection", "Evaluation Dashboard"]
+st.sidebar.markdown("## 🚀 Navigation")
 
-selected_page = st.sidebar.radio(
-    "Navigation",
-    pages,
-    index=pages.index(st.session_state.page)
-)
+nav_options = [
+    "Model Selection",
+    "Upload & Detect",
+    "Webcam Detection",
+    "Evaluation Dashboard"
+]
 
-if selected_page != st.session_state.page:
-    st.session_state.page = selected_page
+for option in nav_options:
+    container_class = "sidebar-active" if st.session_state.page == option else "sidebar-btn"
+    with st.sidebar.container():
+        st.markdown(f'<div class="{container_class}">', unsafe_allow_html=True)
+        if st.button(option, key=f"nav_{option}", use_container_width=True):
+            st.session_state.page = option
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
 page = st.session_state.page
 
 # ==================================================
-# MODEL SELECTION (AUTO LOAD)
+# MODEL SELECTION
 # ==================================================
 if page == "Model Selection":
 
@@ -191,24 +195,55 @@ if page == "Upload & Detect":
                 FRAME_WINDOW.image(annotated)
             cap.release()
 
-    # MODEL COMPARISON
-    st.subheader("🔬 Model Comparison")
-    compare = st.checkbox("Enable Model Comparison")
+    # ---------------- DATASET SECTION ----------------
+    st.subheader("📂 Dataset Images")
 
-    if compare and temp_path and uploaded_file.name.lower().endswith(("jpg","png","jpeg")):
-        if os.path.exists("best.pt") and os.path.exists("yolov8n.pt"):
-            model_best = YOLO("best.pt")
-            model_nano = YOLO("yolov8n.pt")
-            res1 = model_best(temp_path, conf=conf, iou=iou)
-            res2 = model_nano(temp_path, conf=conf, iou=iou)
-            img1 = cv2.cvtColor(res1[0].plot(), cv2.COLOR_BGR2RGB)
-            img2 = cv2.cvtColor(res2[0].plot(), cv2.COLOR_BGR2RGB)
-            col1, col2 = st.columns(2)
-            col1.image(img1, caption="best.pt")
-            col2.image(img2, caption="yolov8n.pt")
+    dataset_path = "datasets"
+
+    if os.path.exists(dataset_path):
+
+        dataset_images = [
+            f for f in os.listdir(dataset_path)
+            if f.lower().endswith((".jpg", ".png", ".jpeg"))
+        ]
+
+        if dataset_images:
+
+            selected_dataset_img = st.selectbox(
+                "Select Dataset Image",
+                ["-- Select Image --"] + dataset_images
+            )
+
+            if selected_dataset_img != "-- Select Image --":
+
+                img_path = os.path.join(dataset_path, selected_dataset_img)
+
+                results = model(img_path, conf=conf, iou=iou)
+                img = cv2.cvtColor(results[0].plot(), cv2.COLOR_BGR2RGB)
+
+                st.image(img)
+                show_detection_counts(results)
+
+                # MODEL COMPARISON FOR DATASET
+                compare_dataset = st.checkbox("Compare best.pt vs yolov8n.pt")
+
+                if compare_dataset and os.path.exists("best.pt") and os.path.exists("yolov8n.pt"):
+
+                    model_best = YOLO("best.pt")
+                    model_nano = YOLO("yolov8n.pt")
+
+                    res1 = model_best(img_path, conf=conf, iou=iou)
+                    res2 = model_nano(img_path, conf=conf, iou=iou)
+
+                    img1 = cv2.cvtColor(res1[0].plot(), cv2.COLOR_BGR2RGB)
+                    img2 = cv2.cvtColor(res2[0].plot(), cv2.COLOR_BGR2RGB)
+
+                    col1, col2 = st.columns(2)
+                    col1.image(img1, caption="best.pt")
+                    col2.image(img2, caption="yolov8n.pt")
 
 # ==================================================
-# WEBCAM LIVE (FIXED + STUN + FPS)
+# WEBCAM LIVE (STUN + TURN + FPS)
 # ==================================================
 class YOLOVideoProcessor(VideoProcessorBase):
     def __init__(self, model):
@@ -253,7 +288,12 @@ if page == "Webcam Detection":
         media_stream_constraints={"video": True, "audio": False},
         rtc_configuration={
             "iceServers": [
-                {"urls": ["stun:stun.l.google.com:19302"]}
+                {"urls": ["stun:stun.l.google.com:19302"]},
+                {
+                    "urls": "turn:openrelay.metered.ca:80",
+                    "username": "openrelayproject",
+                    "credential": "openrelayproject"
+                }
             ]
         },
     )
@@ -288,12 +328,9 @@ if page == "Evaluation Dashboard":
     col3.metric("Precision", f"{latest[precision_col]*100:.2f}%")
     col4.metric("Recall", f"{latest[recall_col]*100:.2f}%")
 
-    st.line_chart(df[[loss_col]].rename(
-        columns={loss_col: "Box Loss"}))
-    st.line_chart(df[[precision_col]].rename(
-        columns={precision_col: "Precision"}))
-    st.line_chart(df[[recall_col]].rename(
-        columns={recall_col: "Recall"}))
+    st.line_chart(df[[loss_col]].rename(columns={loss_col: "Box Loss"}))
+    st.line_chart(df[[precision_col]].rename(columns={precision_col: "Precision"}))
+    st.line_chart(df[[recall_col]].rename(columns={recall_col: "Recall"}))
 
     for img in ["confusion_matrix.png",
                 "PR_curve.png",
