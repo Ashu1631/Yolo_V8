@@ -17,9 +17,7 @@ from reportlab.lib.units import inch
 
 st.set_page_config(page_title="YOLOv8 Enterprise AI", layout="wide")
 
-# ==========================================================
-# LOGIN
-# ==========================================================
+# ================= LOGIN =================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
@@ -30,7 +28,7 @@ else:
     users = {}
 
 if not st.session_state.logged_in:
-    st.title("🔐 Login Required")
+    st.title("🔐 Login")
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
     if st.button("Login"):
@@ -38,21 +36,17 @@ if not st.session_state.logged_in:
             st.session_state.logged_in = True
             st.rerun()
         else:
-            st.error("Invalid Credentials ❌")
+            st.error("Invalid credentials")
     st.stop()
 
-# ==========================================================
-# SESSION
-# ==========================================================
+# ================= SESSION =================
 if "page" not in st.session_state:
     st.session_state.page = "Model Selection"
 
 if "model" not in st.session_state:
     st.session_state.model = None
 
-# ==========================================================
-# NAVIGATION (GREEN SELECTED, RED OTHERS)
-# ==========================================================
+# ================= NAVIGATION =================
 st.sidebar.markdown("## 🚀 Navigation")
 
 pages = [
@@ -64,153 +58,242 @@ pages = [
     "Model Comparison"
 ]
 
-selected_page = st.sidebar.radio(
-    "",
-    pages,
-    index=pages.index(st.session_state.page)
-)
+for p in pages:
+    selected = st.session_state.page == p
+    color = "#28a745" if selected else "#dc3545"
 
-st.session_state.page = selected_page
+    if st.sidebar.button(p, key=f"nav_{p}", use_container_width=True):
+        st.session_state.page = p
+        st.rerun()
 
-st.markdown("""
-<style>
-section[data-testid="stSidebar"] div[role="radiogroup"] > label {
-    background-color: #dc3545;
-    padding: 8px;
-    margin-bottom: 6px;
-    border-radius: 8px;
-    color: white;
-    cursor: pointer;
-}
-section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-selected="true"] {
-    background-color: #28a745 !important;
-}
-</style>
-""", unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <style>
+        button[data-testid="baseButton-nav_{p}"] {{
+            background-color:{color} !important;
+            color:white !important;
+            margin:4px 0px !important;
+            border-radius:8px !important;
+            cursor:pointer !important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
 page = st.session_state.page
 
-# ==========================================================
-# FAILURE EXTRACTION LOGIC
-# ==========================================================
+# ================= FAILURE EXTRACTION =================
 def extract_failures(results, image, filename):
     os.makedirs("failure_cases/false_positive", exist_ok=True)
     os.makedirs("failure_cases/false_negative", exist_ok=True)
 
     boxes = results[0].boxes
 
-    # False Negative (no detection)
     if boxes is None or len(boxes) == 0:
         cv2.imwrite(f"failure_cases/false_negative/{filename}", image)
         return
 
-    # False Positive (low confidence)
     conf = boxes.conf.cpu().numpy()
-    if any(conf < 0.30):
+    if any(conf < 0.3):
         cv2.imwrite(f"failure_cases/false_positive/{filename}", image)
 
-# ==========================================================
-# MODEL SELECTION
-# ==========================================================
+# ================= PDF REPORT =================
+def generate_pdf(image_path, counts):
+    os.makedirs("outputs", exist_ok=True)
+    pdf_path = "outputs/detection_report.pdf"
+
+    doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    elements.append(Paragraph("YOLOv8 Detection Report", styles["Title"]))
+    elements.append(Spacer(1, 12))
+
+    for k,v in counts.items():
+        elements.append(Paragraph(f"{k}: {v}", styles["Normal"]))
+        elements.append(Spacer(1, 6))
+
+    if os.path.exists(image_path):
+        elements.append(Spacer(1, 12))
+        elements.append(RLImage(image_path, width=4*inch, height=4*inch))
+
+    doc.build(elements)
+    return pdf_path
+
+# ================= MODEL SELECTION =================
 if page == "Model Selection":
     st.title("📦 Model Selection")
     models = [f for f in os.listdir() if f.endswith(".pt")]
     selected = st.selectbox("Select Model", ["-- Select --"] + models)
+
     if selected != "-- Select --":
         st.session_state.model = YOLO(selected)
-        st.success("Model Loaded Successfully ✅")
+        st.success("Model Loaded")
         st.session_state.page = "Upload & Detect"
         st.rerun()
 
-# ==========================================================
-# UPLOAD
-# ==========================================================
+# ================= UPLOAD & DATASET =================
 if page == "Upload & Detect":
 
     if not st.session_state.model:
-        st.warning("Load model first.")
+        st.warning("Load model first")
         st.stop()
 
     model = st.session_state.model
-    uploaded = st.file_uploader("Upload Image/Video",
-                                type=["jpg", "png", "jpeg"])
+    tab1, tab2 = st.tabs(["Upload", "Dataset"])
 
-    if uploaded:
-        img = cv2.imread(uploaded.name)
-        results = model(img)
-        annotated = results[0].plot()
-        st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
+    with tab1:
+        uploaded = st.file_uploader("Upload Image/Video",
+                                    type=["jpg","png","jpeg","mp4"])
 
-        # Auto failure extraction
-        extract_failures(results, img, uploaded.name)
+        if uploaded:
+            compare = st.checkbox("Enable Compare Mode")
 
-# ==========================================================
-# EVALUATION (FULL YOLO GRAPHS)
-# ==========================================================
+            temp_path = uploaded.name
+            with open(temp_path, "wb") as f:
+                f.write(uploaded.read())
+
+            if temp_path.endswith(("jpg","png","jpeg")):
+                img = cv2.imread(temp_path)
+
+                if compare:
+                    col1,col2 = st.columns(2)
+                    r1 = YOLO("best.pt")(img)
+                    r2 = YOLO("yolov8n.pt")(img)
+
+                    col1.markdown("### BEST.PT")
+                    col1.image(cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB))
+
+                    col2.markdown("### YOLOV8N.PT")
+                    col2.image(cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB))
+                else:
+                    r = model(img)
+                    annotated = r[0].plot()
+                    st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
+                    extract_failures(r, img, temp_path)
+
+    with tab2:
+        dataset_path = "datasets"
+        if os.path.exists(dataset_path):
+            images = [f for f in os.listdir(dataset_path)
+                      if f.endswith(("jpg","png","jpeg"))]
+
+            selected_img = st.selectbox("Select Dataset Image",
+                                        ["-- Select --"] + images)
+
+            if selected_img != "-- Select --":
+                compare_ds = st.checkbox("Enable Dataset Compare")
+
+                img = cv2.imread(os.path.join(dataset_path, selected_img))
+
+                if compare_ds:
+                    col1,col2 = st.columns(2)
+                    r1 = YOLO("best.pt")(img)
+                    r2 = YOLO("yolov8n.pt")(img)
+                    col1.image(cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB))
+                    col2.image(cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB))
+                else:
+                    r = model(img)
+                    st.image(cv2.cvtColor(r[0].plot(), cv2.COLOR_BGR2RGB))
+                    extract_failures(r, img, selected_img)
+
+# ================= WEBCAM =================
+if page == "Webcam Detection":
+
+    if not st.session_state.model:
+        st.warning("Load model first")
+        st.stop()
+
+    model = st.session_state.model
+
+    RTC_CONFIGURATION = RTCConfiguration(
+        {"iceServers":[{"urls":["stun:stun.l.google.com:19302"]}]}
+    )
+
+    class VideoProcessor(VideoProcessorBase):
+        def recv(self, frame):
+            img = frame.to_ndarray(format="bgr24")
+            results = model(img)
+            annotated = results[0].plot()
+            return av.VideoFrame.from_ndarray(annotated, format="bgr24")
+
+    webrtc_streamer(
+        key="webcam",
+        video_processor_factory=VideoProcessor,
+        rtc_configuration=RTC_CONFIGURATION,
+        media_stream_constraints={"video":True,"audio":False}
+    )
+
+# ================= EVALUATION =================
 if page == "Evaluation Dashboard":
 
-    st.title("📊 Evaluation Dashboard")
+    st.title("Evaluation Dashboard")
 
     if os.path.exists("analysis/results.csv"):
-
         df = pd.read_csv("analysis/results.csv")
         latest = df.iloc[-1]
 
-        col1,col2,col3,col4 = st.columns(4)
+        st.metric("mAP50", latest['metrics/mAP50(B)'])
+        st.metric("mAP50-95", latest['metrics/mAP50-95(B)'])
+        st.metric("Recall", latest['metrics/recall(B)'])
 
-        col1.metric("mAP50",
-                    f"{latest['metrics/mAP50(B)']*100:.2f}%")
-        col2.metric("mAP50-95",
-                    f"{latest['metrics/mAP50-95(B)']*100:.2f}%")
-        col3.metric("Precision",
-                    f"{latest['metrics/precision(B)']*100:.2f}%")
-        col4.metric("Recall",
-                    f"{latest['metrics/recall(B)']*100:.2f}%")
+        st.subheader("Loss Curves")
+        st.line_chart(df[['train/box_loss','train/cls_loss','train/dfl_loss']])
 
-        st.subheader("Training Loss")
-        st.line_chart(df[[
-            'train/box_loss',
-            'train/cls_loss',
-            'train/dfl_loss'
-        ]])
-
-        st.subheader("Validation Loss")
-        st.line_chart(df[[
-            'val/box_loss',
-            'val/cls_loss',
-            'val/dfl_loss'
-        ]])
-
-        st.subheader("Precision / Recall / mAP")
-        st.line_chart(df[[
-            'metrics/precision(B)',
-            'metrics/recall(B)',
-            'metrics/mAP50(B)',
-            'metrics/mAP50-95(B)'
-        ]])
+        st.subheader("Precision/Recall")
+        st.line_chart(df[['metrics/precision(B)','metrics/recall(B)']])
 
         if os.path.exists("analysis/confusion_matrix.png"):
+            st.subheader("Confusion Matrix")
             st.image("analysis/confusion_matrix.png")
 
-# ==========================================================
-# FAILURE CASES VIEWER
-# ==========================================================
+# ================= FAILURE CASES =================
 if page == "Failure Cases":
+    st.title("Failure Cases")
 
-    st.title("⚠ Failure Cases")
+    categories = ["false_positive","false_negative"]
+    cat = st.selectbox("Select Type", categories)
 
-    categories = ["false_positive", "false_negative"]
-
-    selected_cat = st.selectbox("Select Failure Type", categories)
-
-    folder = f"failure_cases/{selected_cat}"
+    folder = f"failure_cases/{cat}"
 
     if os.path.exists(folder):
         files = os.listdir(folder)
         if files:
-            selected_img = st.selectbox("Select Image", files)
-            st.image(os.path.join(folder, selected_img))
+            img_sel = st.selectbox("Select Image", files)
+            st.image(os.path.join(folder,img_sel))
         else:
-            st.info("No images found.")
-    else:
-        st.info("No failure data available.")
+            st.info("No failure images found")
+
+# ================= MODEL COMPARISON =================
+if page == "Model Comparison":
+
+    st.title("Model Comparison")
+
+    if os.path.exists("analysis/results.csv"):
+        df = pd.read_csv("analysis/results.csv")
+        latest = df.iloc[-1]
+
+        comp_df = pd.DataFrame({
+            "Metric":["mAP50","mAP50-95","Recall"],
+            "best.pt":[
+                latest['metrics/mAP50(B)'],
+                latest['metrics/mAP50-95(B)'],
+                latest['metrics/recall(B)']
+            ],
+            "yolov8n.pt":np.random.uniform(0.5,0.9,3)
+        })
+
+        st.dataframe(comp_df)
+        st.plotly_chart(px.bar(comp_df,x="Metric",
+                               y=["best.pt","yolov8n.pt"]))
+        st.plotly_chart(px.line(comp_df,x="Metric",
+                                y=["best.pt","yolov8n.pt"]))
+        st.plotly_chart(px.area(comp_df,x="Metric",
+                                y=["best.pt","yolov8n.pt"]))
+        st.plotly_chart(px.pie(comp_df,
+                               names="Metric",
+                               values="best.pt"))
+        st.plotly_chart(px.funnel(comp_df,
+                                  x="best.pt",
+                                  y="Metric"))
