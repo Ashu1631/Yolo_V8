@@ -9,21 +9,18 @@ import numpy as np
 import hashlib
 import plotly.express as px
 import time
-import datetime
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
 import av
 
 # ==========================================================
 # CONFIG
 # ==========================================================
-st.set_page_config(
-    page_title="YOLOv8 Enterprise Dashboard",
-    page_icon="🚀",
-    layout="wide"
-)
+st.set_page_config(page_title="YOLOv8 Enterprise Dashboard",
+                   page_icon="🚀",
+                   layout="wide")
 
 # ==========================================================
-# SESSION STATE
+# SESSION
 # ==========================================================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -56,7 +53,7 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ==========================================================
-# NAVIGATION
+# NAVIGATION (Green Selected / Red Unselected)
 # ==========================================================
 st.sidebar.markdown("## 🚀 Navigation")
 
@@ -72,13 +69,8 @@ pages = [
 for p in pages:
     if st.session_state.page == p:
         st.sidebar.markdown(
-            f"""
-            <div style="background:#28a745;padding:10px;
-                        border-radius:8px;color:white;
-                        font-weight:bold;margin-bottom:6px;">
-                👉 {p}
-            </div>
-            """,
+            f"<div style='background:#28a745;padding:10px;border-radius:8px;"
+            f"color:white;font-weight:bold;margin-bottom:6px;'>👉 {p}</div>",
             unsafe_allow_html=True
         )
     else:
@@ -89,7 +81,7 @@ for p in pages:
 page = st.session_state.page
 
 # ==========================================================
-# HELPERS
+# HELPER
 # ==========================================================
 def get_counts(results):
     boxes = results[0].boxes
@@ -127,10 +119,11 @@ if page == "Upload & Detect":
     model = st.session_state.model
     tab1, tab2 = st.tabs(["📤 Upload File", "📂 Dataset Folder"])
 
-    # ---------------- UPLOAD ----------------
     with tab1:
         uploaded = st.file_uploader("Upload Image/Video",
                                     type=["jpg", "png", "jpeg", "mp4"])
+
+        compare = st.checkbox("Enable Model Comparison (best.pt vs yolov8n.pt)")
 
         if uploaded:
             path = os.path.join(tempfile.gettempdir(), uploaded.name)
@@ -139,25 +132,26 @@ if page == "Upload & Detect":
 
             # IMAGE
             if uploaded.name.lower().endswith(("jpg", "png", "jpeg")):
-                start = time.time()
-                results = model(path)
-                end = time.time()
-
-                fps = 1 / (end - start)
-                annotated = results[0].plot()
-
-                st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
-                st.success(f"FPS: {fps:.2f}")
-                st.json(get_counts(results))
+                if compare:
+                    m1 = YOLO("best.pt")
+                    m2 = YOLO("yolov8n.pt")
+                    r1 = m1(path)
+                    r2 = m2(path)
+                    col1, col2 = st.columns(2)
+                    col1.image(cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB))
+                    col2.image(cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB))
+                else:
+                    results = model(path)
+                    st.image(cv2.cvtColor(results[0].plot(), cv2.COLOR_BGR2RGB))
+                    st.json(get_counts(results))
 
             # VIDEO
             if uploaded.name.lower().endswith("mp4"):
-
                 cap = cv2.VideoCapture(path)
-
                 os.makedirs("outputs", exist_ok=True)
-                width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+                width = int(cap.get(3))
+                height = int(cap.get(4))
                 fps_original = cap.get(cv2.CAP_PROP_FPS)
 
                 fourcc = cv2.VideoWriter_fourcc(*"mp4v")
@@ -174,10 +168,19 @@ if page == "Upload & Detect":
                         break
 
                     start = time.time()
-                    results = model(frame)
-                    annotated = results[0].plot()
-                    end = time.time()
 
+                    if compare:
+                        m1 = YOLO("best.pt")
+                        m2 = YOLO("yolov8n.pt")
+                        r1 = m1(frame)
+                        r2 = m2(frame)
+                        annotated = np.hstack((r1[0].plot(),
+                                               r2[0].plot()))
+                    else:
+                        r = model(frame)
+                        annotated = r[0].plot()
+
+                    end = time.time()
                     fps = 1 / (end - start)
                     fps_list.append(fps)
 
@@ -185,8 +188,7 @@ if page == "Upload & Detect":
                                 f"FPS: {fps:.2f}",
                                 (20, 40),
                                 cv2.FONT_HERSHEY_SIMPLEX,
-                                1,
-                                (0, 255, 0), 2)
+                                1, (0, 255, 0), 2)
 
                     out.write(annotated)
 
@@ -200,21 +202,15 @@ if page == "Upload & Detect":
                 st.success("Video Saved Automatically ✅")
 
                 with open(output_path, "rb") as file:
-                    st.download_button(
-                        "⬇ Download Processed Video",
-                        data=file,
-                        file_name="processed_video.mp4",
-                        mime="video/mp4"
-                    )
+                    st.download_button("⬇ Download Processed Video",
+                                       data=file,
+                                       file_name="processed_video.mp4")
 
                 st.subheader("📈 FPS Graph")
                 st.line_chart(pd.DataFrame({"FPS": fps_list}))
-                st.info(f"Average FPS: {np.mean(fps_list):.2f}")
 
-    # ---------------- DATASET ----------------
     with tab2:
         dataset_path = "datasets"
-
         if os.path.exists(dataset_path):
             images = [f for f in os.listdir(dataset_path)
                       if f.lower().endswith((".jpg", ".png", ".jpeg"))]
@@ -224,12 +220,20 @@ if page == "Upload & Detect":
 
             if selected_img != "-- Select --":
                 img_path = os.path.join(dataset_path, selected_img)
-                results = model(img_path)
-                annotated = results[0].plot()
-                st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
+                if compare:
+                    m1 = YOLO("best.pt")
+                    m2 = YOLO("yolov8n.pt")
+                    r1 = m1(img_path)
+                    r2 = m2(img_path)
+                    col1, col2 = st.columns(2)
+                    col1.image(cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB))
+                    col2.image(cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB))
+                else:
+                    results = model(img_path)
+                    st.image(cv2.cvtColor(results[0].plot(), cv2.COLOR_BGR2RGB))
 
 # ==========================================================
-# WEBCAM
+# WEBCAM (STUN FIX)
 # ==========================================================
 if page == "Webcam Detection":
 
@@ -237,35 +241,27 @@ if page == "Webcam Detection":
         st.warning("Load model first.")
         st.stop()
 
+    RTC_CONFIGURATION = RTCConfiguration(
+        {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+    )
+
     model = st.session_state.model
 
     class WebcamProcessor(VideoProcessorBase):
         def __init__(self):
             self.model = model
-            self.prev = time.time()
 
         def recv(self, frame):
             img = frame.to_ndarray(format="bgr24")
             results = self.model(img)
             annotated = results[0].plot()
-
-            now = time.time()
-            fps = 1 / (now - self.prev)
-            self.prev = now
-
-            cv2.putText(annotated,
-                        f"FPS: {fps:.2f}",
-                        (20, 40),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1,
-                        (0, 255, 0), 2)
-
             return av.VideoFrame.from_ndarray(annotated,
                                               format="bgr24")
 
     webrtc_streamer(
-        key="webcam_key",
+        key="webcam_stream",
         video_processor_factory=WebcamProcessor,
+        rtc_configuration=RTC_CONFIGURATION,
         media_stream_constraints={"video": True, "audio": False},
         async_processing=True
     )
@@ -275,8 +271,8 @@ if page == "Webcam Detection":
 # ==========================================================
 if page == "Evaluation Dashboard":
     st.title("📊 Evaluation Dashboard 🚀")
-
     csv_path = "analysis/results.csv"
+
     if os.path.exists(csv_path):
         df = pd.read_csv(csv_path)
         latest = df.iloc[-1]
@@ -289,41 +285,37 @@ if page == "Evaluation Dashboard":
         col3.metric("🔁 Recall",
                     f"{latest['metrics/recall(B)']*100:.2f}%")
 
+        st.subheader("📉 Loss Curve")
         st.line_chart(df[['train/box_loss']])
-        st.line_chart(df[['metrics/precision(B)']])
+
+        st.subheader("📈 Recall Curve")
         st.line_chart(df[['metrics/recall(B)']])
 
         cm_path = "analysis/confusion_matrix.png"
         if os.path.exists(cm_path):
-            st.image(cm_path, caption="Confusion Matrix")
+            st.image(cm_path)
 
 # ==========================================================
 # FAILURE CASES
 # ==========================================================
 if page == "Failure Cases":
     st.title("🚨 Failure Cases")
-
     base = "analysis/failure_cases"
     case = st.selectbox("Select Type",
                         ["false_positives",
                          "false_negatives",
                          "small_objects"])
-
     folder = os.path.join(base, case)
 
     if os.path.exists(folder):
-        images = [f for f in os.listdir(folder)
-                  if f.lower().endswith((".jpg", ".png"))]
-
+        images = os.listdir(folder)
         if len(images) == 0:
             st.warning("No Data Found ⚠")
         else:
             cols = st.columns(3)
             for i, img in enumerate(images):
-                cols[i % 3].image(
-                    os.path.join(folder, img),
-                    use_container_width=True
-                )
+                cols[i % 3].image(os.path.join(folder, img),
+                                  use_container_width=True)
     else:
         st.warning("No Data Found ⚠")
 
@@ -331,31 +323,26 @@ if page == "Failure Cases":
 # MODEL COMPARISON
 # ==========================================================
 if page == "Model Comparison":
-    st.title("📊 Model Performance Comparison")
-
+    st.title("📊 Model Comparison")
     csv_path = "analysis/results.csv"
+
     if os.path.exists(csv_path):
         df = pd.read_csv(csv_path)
-        latest = df.iloc[-1]
 
+        st.line_chart(df[['metrics/mAP50(B)',
+                          'metrics/precision(B)',
+                          'metrics/recall(B)']])
+
+        st.line_chart(df[['train/box_loss']])
+
+        latest = df.iloc[-1]
         metrics = {
             "mAP50": latest['metrics/mAP50(B)'],
             "Precision": latest['metrics/precision(B)'],
             "Recall": latest['metrics/recall(B)']
         }
 
-        st.line_chart(df[['metrics/mAP50(B)',
-                          'metrics/precision(B)',
-                          'metrics/recall(B)']])
-
-        st.plotly_chart(px.bar(
-            x=list(metrics.keys()),
-            y=list(metrics.values()),
-            title="Bar Chart"
-        ))
-
-        st.plotly_chart(px.pie(
-            names=list(metrics.keys()),
-            values=list(metrics.values()),
-            title="Pie Chart"
-        ))
+        st.plotly_chart(px.bar(x=list(metrics.keys()),
+                               y=list(metrics.values())))
+        st.plotly_chart(px.pie(names=list(metrics.keys()),
+                               values=list(metrics.values())))
