@@ -15,12 +15,14 @@ import av
 # ==========================================================
 # CONFIG
 # ==========================================================
-st.set_page_config(page_title="YOLOv8 Enterprise Dashboard",
-                   page_icon="🚀",
-                   layout="wide")
+st.set_page_config(
+    page_title="YOLOv8 Enterprise Dashboard",
+    page_icon="🚀",
+    layout="wide"
+)
 
 # ==========================================================
-# SESSION
+# SESSION STATE
 # ==========================================================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -77,6 +79,19 @@ for p in pages:
         if st.sidebar.button(p, key=f"nav_{p}"):
             st.session_state.page = p
             st.rerun()
+        st.sidebar.markdown(
+            """
+            <style>
+            div[data-testid="stButton"] button {
+                background-color:#dc3545 !important;
+                color:white !important;
+                border-radius:8px;
+                margin-bottom:6px;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
 
 page = st.session_state.page
 
@@ -119,13 +134,14 @@ if page == "Upload & Detect":
     model = st.session_state.model
     tab1, tab2 = st.tabs(["📤 Upload File", "📂 Dataset Folder"])
 
+    # ---------------- UPLOAD ----------------
     with tab1:
         uploaded = st.file_uploader("Upload Image/Video",
                                     type=["jpg", "png", "jpeg", "mp4"])
 
-        compare = st.checkbox("Enable Model Comparison (best.pt vs yolov8n.pt)")
-
         if uploaded:
+            compare = st.checkbox("Enable Model Comparison (best.pt vs yolov8n.pt)")
+
             path = os.path.join(tempfile.gettempdir(), uploaded.name)
             with open(path, "wb") as f:
                 f.write(uploaded.read())
@@ -209,6 +225,7 @@ if page == "Upload & Detect":
                 st.subheader("📈 FPS Graph")
                 st.line_chart(pd.DataFrame({"FPS": fps_list}))
 
+    # ---------------- DATASET ----------------
     with tab2:
         dataset_path = "datasets"
         if os.path.exists(dataset_path):
@@ -219,7 +236,9 @@ if page == "Upload & Detect":
                                         ["-- Select --"] + images)
 
             if selected_img != "-- Select --":
+                compare = st.checkbox("Enable Model Comparison (best.pt vs yolov8n.pt)")
                 img_path = os.path.join(dataset_path, selected_img)
+
                 if compare:
                     m1 = YOLO("best.pt")
                     m2 = YOLO("yolov8n.pt")
@@ -233,7 +252,7 @@ if page == "Upload & Detect":
                     st.image(cv2.cvtColor(results[0].plot(), cv2.COLOR_BGR2RGB))
 
 # ==========================================================
-# WEBCAM (STUN FIX)
+# WEBCAM
 # ==========================================================
 if page == "Webcam Detection":
 
@@ -248,12 +267,9 @@ if page == "Webcam Detection":
     model = st.session_state.model
 
     class WebcamProcessor(VideoProcessorBase):
-        def __init__(self):
-            self.model = model
-
         def recv(self, frame):
             img = frame.to_ndarray(format="bgr24")
-            results = self.model(img)
+            results = model(img)
             annotated = results[0].plot()
             return av.VideoFrame.from_ndarray(annotated,
                                               format="bgr24")
@@ -296,53 +312,43 @@ if page == "Evaluation Dashboard":
             st.image(cm_path)
 
 # ==========================================================
-# FAILURE CASES
-# ==========================================================
-if page == "Failure Cases":
-    st.title("🚨 Failure Cases")
-    base = "analysis/failure_cases"
-    case = st.selectbox("Select Type",
-                        ["false_positives",
-                         "false_negatives",
-                         "small_objects"])
-    folder = os.path.join(base, case)
-
-    if os.path.exists(folder):
-        images = os.listdir(folder)
-        if len(images) == 0:
-            st.warning("No Data Found ⚠")
-        else:
-            cols = st.columns(3)
-            for i, img in enumerate(images):
-                cols[i % 3].image(os.path.join(folder, img),
-                                  use_container_width=True)
-    else:
-        st.warning("No Data Found ⚠")
-
-# ==========================================================
 # MODEL COMPARISON
 # ==========================================================
 if page == "Model Comparison":
-    st.title("📊 Model Comparison")
-    csv_path = "analysis/results.csv"
+    st.title("📊 Advanced Model Comparison")
 
+    csv_path = "analysis/results.csv"
     if os.path.exists(csv_path):
         df = pd.read_csv(csv_path)
 
+        st.subheader("📈 Performance Curves")
         st.line_chart(df[['metrics/mAP50(B)',
                           'metrics/precision(B)',
                           'metrics/recall(B)']])
 
-        st.line_chart(df[['train/box_loss']])
+        st.subheader("📉 Loss Curves")
+        st.line_chart(df[['train/box_loss',
+                          'train/cls_loss',
+                          'train/dfl_loss']])
 
         latest = df.iloc[-1]
         metrics = {
             "mAP50": latest['metrics/mAP50(B)'],
             "Precision": latest['metrics/precision(B)'],
-            "Recall": latest['metrics/recall(B)']
+            "Recall": latest['metrics/recall(B)'],
+            "Box Loss": latest['train/box_loss'],
+            "Cls Loss": latest['train/cls_loss'],
+            "DFL Loss": latest['train/dfl_loss']
         }
 
+        st.subheader("📊 Bar Chart")
         st.plotly_chart(px.bar(x=list(metrics.keys()),
                                y=list(metrics.values())))
+
+        st.subheader("🥧 Pie Chart")
         st.plotly_chart(px.pie(names=list(metrics.keys()),
                                values=list(metrics.values())))
+
+        st.subheader("🔻 Funnel Chart")
+        st.plotly_chart(px.funnel(x=list(metrics.values()),
+                                  y=list(metrics.keys())))
