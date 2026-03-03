@@ -14,15 +14,12 @@ from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
 import av
 
 # ==================================================
-# PAGE CONFIG
+# CONFIG
 # ==================================================
 st.set_page_config(page_title="YOLOv8 Enterprise Dashboard",
                    page_icon="🚀",
                    layout="wide")
 
-# ==================================================
-# OUTPUT FOLDER
-# ==================================================
 OUTPUT_DIR = "outputs"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -37,7 +34,7 @@ if "model_object" not in st.session_state:
     st.session_state.model_object = None
 
 # ==================================================
-# LOGIN SYSTEM
+# LOGIN
 # ==================================================
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -63,52 +60,58 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ==================================================
-# SIDEBAR
+# SIDEBAR NAVIGATION (FIXED ACTIVE STYLE)
 # ==================================================
 st.sidebar.markdown("""
 <style>
-.nav-btn button {
+.stButton > button {
     width: 100%;
     padding: 10px;
     margin-bottom: 6px;
     border-radius: 8px;
     cursor: pointer !important;
 }
-.nav-active button {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 6px;
-    border-radius: 8px;
+.stButton > button:hover {
+    background-color: #1f2937 !important;
+}
+.active-page > button {
     background-color: #00FFFF !important;
     color: black !important;
-    font-weight: bold;
+    font-weight: bold !important;
+    border: 2px solid white !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
 st.sidebar.markdown("## 🚀 Navigation")
 
-pages = ["Model Selection",
-         "Upload & Detect",
-         "Webcam Detection",
-         "Evaluation Dashboard",
-         "Failure Cases"]
+pages = [
+    "Model Selection",
+    "Upload & Detect",
+    "Webcam Detection",
+    "Evaluation Dashboard",
+    "Failure Cases"
+]
 
 for p in pages:
-    container_class = "nav-active" if st.session_state.page == p else "nav-btn"
-    with st.sidebar.container():
-        st.markdown(f'<div class="{container_class}">', unsafe_allow_html=True)
-        if st.button(p, key=f"nav_{p}", use_container_width=True):
+    container = st.sidebar.container()
+    if st.session_state.page == p:
+        container.markdown('<div class="active-page">', unsafe_allow_html=True)
+        if container.button(p, key=p):
             st.session_state.page = p
             st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+        container.markdown("</div>", unsafe_allow_html=True)
+    else:
+        if container.button(p, key=p):
+            st.session_state.page = p
+            st.rerun()
 
 page = st.session_state.page
 
 # ==================================================
 # HELPER FUNCTIONS
 # ==================================================
-def show_detection_counts(results):
+def get_counts(results):
     boxes = results[0].boxes
     counts = {}
     if boxes is not None and len(boxes.cls) > 0:
@@ -119,7 +122,7 @@ def show_detection_counts(results):
             counts[name] = counts.get(name, 0) + 1
     return counts
 
-def show_class_bar_chart(counts):
+def show_bar_chart(counts):
     if counts:
         fig, ax = plt.subplots()
         ax.bar(counts.keys(), counts.values())
@@ -142,6 +145,7 @@ if page == "Model Selection":
     st.title("📦 Model Selection")
     models = [f for f in os.listdir() if f.endswith(".pt")]
     selected = st.selectbox("Select Model", ["-- Select --"] + models)
+
     if selected != "-- Select --":
         st.session_state.model_object = YOLO(selected)
         st.session_state.page = "Upload & Detect"
@@ -174,9 +178,9 @@ if page == "Upload & Detect":
             img = cv2.cvtColor(results[0].plot(), cv2.COLOR_BGR2RGB)
             st.image(img)
 
-            counts = show_detection_counts(results)
+            counts = get_counts(results)
             st.json(counts)
-            show_class_bar_chart(counts)
+            show_bar_chart(counts)
 
             save_path = os.path.join(OUTPUT_DIR, f"detected_{uploaded.name}")
             cv2.imwrite(save_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
@@ -186,15 +190,68 @@ if page == "Upload & Detect":
                                file_name=os.path.basename(save_path))
 
             report_path = generate_report(uploaded.name, counts, end-start)
-
             st.download_button("Download Report",
                                open(report_path, "rb"),
                                file_name=os.path.basename(report_path))
 
+            # Compare Upload
+            compare_upload = st.checkbox("Compare best.pt vs yolov8n.pt")
+            if compare_upload:
+                model_best = YOLO("best.pt")
+                model_nano = YOLO("yolov8n.pt")
+
+                r1 = model_best(path)
+                r2 = model_nano(path)
+
+                img1 = cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB)
+                img2 = cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB)
+
+                col1, col2 = st.columns(2)
+                col1.image(img1, caption="best.pt")
+                col2.image(img2, caption="yolov8n.pt")
+
+    # ================= DATASET =================
+    st.subheader("📂 Dataset Images")
+
+    dataset_path = "datasets"
+
+    if os.path.exists(dataset_path):
+        dataset_images = [
+            f for f in os.listdir(dataset_path)
+            if f.lower().endswith((".jpg", ".png", ".jpeg"))
+        ]
+
+        if dataset_images:
+            selected_img = st.selectbox(
+                "Select Dataset Image",
+                ["-- Select Image --"] + dataset_images
+            )
+
+            if selected_img != "-- Select Image --":
+                img_path = os.path.join(dataset_path, selected_img)
+                results = model(img_path)
+                img = cv2.cvtColor(results[0].plot(), cv2.COLOR_BGR2RGB)
+                st.image(img)
+
+                compare_dataset = st.checkbox("Compare Models (Dataset)")
+                if compare_dataset:
+                    model_best = YOLO("best.pt")
+                    model_nano = YOLO("yolov8n.pt")
+
+                    r1 = model_best(img_path)
+                    r2 = model_nano(img_path)
+
+                    img1 = cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB)
+                    img2 = cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB)
+
+                    col1, col2 = st.columns(2)
+                    col1.image(img1, caption="best.pt")
+                    col2.image(img2, caption="yolov8n.pt")
+
 # ==================================================
-# MULTI-MODEL WEBCAM
+# WEBCAM (SAFE VERSION)
 # ==================================================
-class DualProcessor(VideoProcessorBase):
+class SafeDualProcessor(VideoProcessorBase):
     def __init__(self):
         self.model1 = YOLO("best.pt")
         self.model2 = YOLO("yolov8n.pt")
@@ -203,65 +260,67 @@ class DualProcessor(VideoProcessorBase):
     def recv(self, frame):
         img = frame.to_ndarray(format="bgr24")
         img = cv2.resize(img, (640, 480))
-        r1 = self.model1(img)
-        r2 = self.model2(img)
-        f1 = r1[0].plot()
-        f2 = r2[0].plot()
-        combined = np.hstack((f1, f2))
-        now = time.time()
-        fps = 1 / (now - self.prev)
-        self.prev = now
-        cv2.putText(combined, f"FPS:{int(fps)}",
-                    (20, 40), cv2.FONT_HERSHEY_SIMPLEX,
-                    1, (0, 255, 0), 2)
-        return av.VideoFrame.from_ndarray(combined, format="bgr24")
+        try:
+            r1 = self.model1(img)
+            r2 = self.model2(img)
+
+            f1 = r1[0].plot()
+            f2 = r2[0].plot()
+
+            combined = np.hstack((f1, f2))
+
+            now = time.time()
+            fps = 1 / (now - self.prev)
+            self.prev = now
+
+            cv2.putText(combined, f"FPS:{int(fps)}",
+                        (20, 40), cv2.FONT_HERSHEY_SIMPLEX,
+                        1, (0, 255, 0), 2)
+
+            return av.VideoFrame.from_ndarray(combined, format="bgr24")
+        except:
+            return frame
 
 if page == "Webcam Detection":
     st.title("📷 Multi Model Live Comparison")
+
     webrtc_streamer(
         key="dual",
-        video_processor_factory=DualProcessor,
-        media_stream_constraints={"video": True, "audio": False},
-        rtc_configuration={
-            "iceTransportPolicy": "relay",
-            "iceServers": [{
-                "urls": "turn:openrelay.metered.ca:80",
-                "username": "openrelayproject",
-                "credential": "openrelayproject"
-            }]
-        }
+        video_processor_factory=SafeDualProcessor,
+        media_stream_constraints={"video": True, "audio": False}
     )
 
 # ==================================================
-# EVALUATION DASHBOARD
+# EVALUATION DASHBOARD (RESTORED)
 # ==================================================
 if page == "Evaluation Dashboard":
     path = "analysis/results.csv"
-    if not os.path.exists(path):
-        st.error("results.csv missing")
-        st.stop()
+    if os.path.exists(path):
+        df = pd.read_csv(path)
+        latest = df.iloc[-1]
 
-    df = pd.read_csv(path)
-    latest = df.iloc[-1]
+        col1, col2, col3 = st.columns(3)
+        col1.metric("mAP50", f"{latest['metrics/mAP50(B)']*100:.2f}%")
+        col2.metric("Precision", f"{latest['metrics/precision(B)']*100:.2f}%")
+        col3.metric("Recall", f"{latest['metrics/recall(B)']*100:.2f}%")
 
-    st.metric("mAP50", f"{latest['metrics/mAP50(B)']*100:.2f}%")
-    st.metric("Precision", f"{latest['metrics/precision(B)']*100:.2f}%")
-    st.metric("Recall", f"{latest['metrics/recall(B)']*100:.2f}%")
+        st.line_chart(df[['train/box_loss']])
+        st.line_chart(df[['metrics/precision(B)']])
+        st.line_chart(df[['metrics/recall(B)']])
 
-    st.line_chart(df[['metrics/mAP50(B)']])
-
-    cm_csv = "analysis/confusion_matrix.csv"
-    if os.path.exists(cm_csv):
-        cm = pd.read_csv(cm_csv, index_col=0)
-        fig = px.imshow(cm, text_auto=True,
-                        color_continuous_scale="Blues")
-        st.plotly_chart(fig, use_container_width=True)
+        cm_csv = "analysis/confusion_matrix.csv"
+        if os.path.exists(cm_csv):
+            cm = pd.read_csv(cm_csv, index_col=0)
+            fig = px.imshow(cm, text_auto=True,
+                            color_continuous_scale="Blues")
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("results.csv not found.")
 
 # ==================================================
 # FAILURE CASES
 # ==================================================
 if page == "Failure Cases":
-
     st.title("🚨 Failure Case Analysis")
 
     base_path = os.path.join("analysis", "failure_cases")
@@ -283,13 +342,14 @@ if page == "Failure Cases":
         images = [f for f in os.listdir(selected_folder)
                   if f.lower().endswith((".jpg", ".png", ".jpeg"))]
 
-        st.subheader(f"{case_type} ({len(images)} cases)")
-
-        cols = st.columns(3)
-        for i, img_name in enumerate(images):
-            img_path = os.path.join(selected_folder, img_name)
-            cols[i % 3].image(img_path,
-                              caption=img_name,
-                              use_container_width=True)
+        if images:
+            cols = st.columns(3)
+            for i, img_name in enumerate(images):
+                img_path = os.path.join(selected_folder, img_name)
+                cols[i % 3].image(img_path,
+                                  caption=img_name,
+                                  use_container_width=True)
+        else:
+            st.info("No images found in this category.")
     else:
-        st.info("No failure cases found.")
+        st.info("Failure cases folder not found.")
