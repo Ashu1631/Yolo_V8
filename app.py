@@ -4,221 +4,280 @@ import yaml
 import pandas as pd
 from ultralytics import YOLO
 import tempfile
-import gc
+import cv2
+import hashlib
 
-# -----------------------------
+# --------------------------------------------------
 # PAGE CONFIG
-# -----------------------------
+# --------------------------------------------------
 st.set_page_config(
     page_title="YOLOv8 Enterprise Dashboard",
     page_icon="🚀",
     layout="wide"
 )
 
-# -----------------------------
-# CUSTOM DARK STYLE
-# -----------------------------
+# --------------------------------------------------
+# DARK THEME
+# --------------------------------------------------
 st.markdown("""
 <style>
 .stApp {background-color: #0E1117; color: white;}
 h1,h2,h3,h4 {color: #00FFFF;}
 .stButton>button {background-color:#1f77b4; color:white;}
 .stDownloadButton>button {background-color:#17becf; color:white;}
-.metric {background-color: #1f1f1f; padding: 10px; border-radius: 8px;}
 </style>
 """, unsafe_allow_html=True)
 
-# -----------------------------
-# SESSION INIT
-# -----------------------------
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "selected_model" not in st.session_state:
-    st.session_state.selected_model = None
-if "page" not in st.session_state:
+# --------------------------------------------------
+# SESSION STATE INIT
+# --------------------------------------------------
+for key in ["logged_in", "selected_model", "model_object", "page"]:
+    if key not in st.session_state:
+        st.session_state[key] = False if key=="logged_in" else None
+
+if st.session_state.page is None:
     st.session_state.page = "Model Selection"
 
-# -----------------------------
+# --------------------------------------------------
+# PASSWORD HASH
+# --------------------------------------------------
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+# --------------------------------------------------
 # LOAD USERS
-# -----------------------------
+# --------------------------------------------------
 with open("users.yaml") as file:
     users_yaml = yaml.safe_load(file)
-    users = {k.strip(): v['password'].strip() for k,v in users_yaml['users'].items()}
+    users = {k.strip(): v['password'].strip()
+             for k,v in users_yaml['users'].items()}
 
-# -----------------------------
-# LOGIN FUNCTION
-# -----------------------------
+# --------------------------------------------------
+# LOGIN
+# --------------------------------------------------
 def login():
     st.title("🔐 Login Required")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
+
     if st.button("Login"):
-        if username.strip() in users and users[username.strip()] == password.strip():
-            st.session_state.logged_in = True
-            st.success("Login Successful ✅")
-            st.experimental_rerun()
-        else:
-            st.error("Invalid Credentials ❌")
+        if username in users:
+            stored = users[username]
+            if stored == password or stored == hash_password(password):
+                st.session_state.logged_in = True
+                st.rerun()
+        st.error("Invalid Credentials ❌")
 
 if not st.session_state.logged_in:
     login()
     st.stop()
 
-# -----------------------------
+# --------------------------------------------------
 # SIDEBAR NAVIGATION
-# -----------------------------
+# --------------------------------------------------
 st.sidebar.title("🚀 YOLOv8 Enterprise Dashboard")
+
+pages = ["Model Selection", "Upload & Detect",
+         "Webcam Detection", "Evaluation Dashboard"]
+
 st.session_state.page = st.sidebar.radio(
     "Navigation",
-    ["Model Selection", "Upload & Detect", "Evaluation Dashboard"],
-    index=["Model Selection","Upload & Detect","Evaluation Dashboard"].index(st.session_state.page)
+    pages,
+    index=pages.index(st.session_state.page)
 )
+
 page = st.session_state.page
 
-# -----------------------------
-# MODEL LOADING (CACHED)
-# -----------------------------
+# --------------------------------------------------
+# MODEL LOADER
+# --------------------------------------------------
 @st.cache_resource
 def load_model(path):
     return YOLO(path)
 
-# -----------------------------
-# MODEL SELECTION PAGE
-# -----------------------------
+# --------------------------------------------------
+# MODEL SELECTION
+# --------------------------------------------------
 if page == "Model Selection":
     st.title("📦 Model Selection")
-    model_files = [f for f in os.listdir() if f.endswith(".pt")]
-    if model_files:
-        selected = st.selectbox("Select YOLO Model", model_files, key="model_select")
-        if selected:
-            st.session_state.selected_model = selected
-            st.success(f"Selected Model: {selected}")
-            # Auto switch page
-            st.session_state.page = "Upload & Detect"
-            st.experimental_rerun()
-    else:
-        st.error("No .pt model files found!")
 
-# -----------------------------
+    model_files = [f for f in os.listdir() if f.endswith(".pt")]
+
+    if not model_files:
+        st.error("No .pt model files found!")
+        st.stop()
+
+    selected = st.selectbox("Select YOLO Model", model_files)
+
+    if st.button("Load Model"):
+        model_path = os.path.join(os.getcwd(), selected)
+        st.session_state.selected_model = selected
+        st.session_state.model_object = load_model(model_path)
+        st.success(f"Model {selected} loaded successfully!")
+        st.session_state.page = "Upload & Detect"
+        st.rerun()
+
+# --------------------------------------------------
 # UPLOAD & DETECT
-# -----------------------------
+# --------------------------------------------------
 if page == "Upload & Detect":
     st.title("📤 Upload & Detect")
-    if not st.session_state.selected_model:
-        st.warning("⚠ Please select model first.")
+
+    if not st.session_state.model_object:
+        st.warning("Load model first.")
         st.stop()
 
-    option = st.radio("Choose Input Type", ["Upload Image/Video", "Use Dataset Folder"])
-    model_path = os.path.join(os.getcwd(), st.session_state.selected_model)
+    model = st.session_state.model_object
 
-    # Safe model loading
-    try:
-        model = load_model(model_path)
-    except Exception as e:
-        st.error(f"Error loading model: {e}")
-        st.stop()
+    conf = st.slider("Confidence Threshold", 0.0, 1.0, 0.25)
+    iou = st.slider("IoU Threshold", 0.0, 1.0, 0.45)
 
-    # -----------------
-    # Upload Image/Video
-    # -----------------
+    option = st.radio("Input Type",
+                      ["Upload Image/Video", "Use Dataset Folder"])
+
     if option == "Upload Image/Video":
-        uploaded_file = st.file_uploader("Upload Image or Video", type=["jpg","png","jpeg","mp4"])
-        if uploaded_file:
-            tfile_path = os.path.join(tempfile.gettempdir(), uploaded_file.name)
-            with open(tfile_path, "wb") as f:
-                f.write(uploaded_file.read())
-            st.info("Running Detection...")
-            try:
-                results = model(tfile_path, stream=True)
-                for r in results:
-                    im_array = r.plot()
-                    if im_array is not None:
-                        st.image(im_array, caption="Detection Result", use_container_width=True)
-                        del im_array
-                        gc.collect()
-                    else:
-                        st.warning("Could not generate detection result image.")
-            except Exception as e:
-                st.error(f"Error running detection: {e}")
+        uploaded_file = st.file_uploader(
+            "Upload File", type=["jpg","png","jpeg","mp4"])
 
-    # -----------------
-    # Dataset Folder
-    # -----------------
+        if uploaded_file:
+            temp_path = os.path.join(
+                tempfile.gettempdir(), uploaded_file.name)
+
+            with open(temp_path, "wb") as f:
+                f.write(uploaded_file.read())
+
+            st.info("Running Detection...")
+
+            results = model(temp_path, conf=conf,
+                            iou=iou, save=True)
+
+            save_dir = results[0].save_dir
+
+            for file in os.listdir(save_dir):
+                path = os.path.join(save_dir, file)
+                if file.endswith((".jpg",".png")):
+                    st.image(path)
+                if file.endswith(".mp4"):
+                    st.video(path)
+
     if option == "Use Dataset Folder":
         dataset_path = "datasets"
-        if os.path.exists(dataset_path):
-            st.success("Using images from datasets folder")
-            images = [os.path.join(dataset_path,f) for f in os.listdir(dataset_path) if f.lower().endswith((".jpg","png","jpeg"))]
-            if not images:
-                st.warning("No valid images in dataset folder!")
-            for img_path in images:
-                try:
-                    results = model(img_path, stream=True)
-                    for r in results:
-                        im_array = r.plot()
-                        if im_array is not None:
-                            st.image(im_array, caption=os.path.basename(img_path), use_container_width=True)
-                            del im_array
-                            gc.collect()
-                        else:
-                            st.warning(f"Could not generate image for {os.path.basename(img_path)}")
-                except Exception as e:
-                    st.error(f"Error processing {os.path.basename(img_path)}: {e}")
-        else:
-            st.error("Datasets folder not found!")
 
-# -----------------------------
+        if not os.path.exists(dataset_path):
+            st.error("datasets folder not found!")
+            st.stop()
+
+        images = [os.path.join(dataset_path,f)
+                  for f in os.listdir(dataset_path)
+                  if f.lower().endswith((".jpg",".png",".jpeg"))]
+
+        for img in images:
+            results = model(img, conf=conf, iou=iou)
+            for r in results:
+                st.image(r.plot(),
+                         caption=os.path.basename(img))
+
+# --------------------------------------------------
+# WEBCAM DETECTION
+# --------------------------------------------------
+if page == "Webcam Detection":
+    st.title("📷 Live Webcam Detection")
+
+    if not st.session_state.model_object:
+        st.warning("Load model first.")
+        st.stop()
+
+    model = st.session_state.model_object
+
+    conf = st.slider("Confidence", 0.0, 1.0, 0.25)
+    iou = st.slider("IoU", 0.0, 1.0, 0.45)
+
+    run = st.checkbox("Start Webcam")
+
+    FRAME_WINDOW = st.image([])
+
+    if run:
+        cap = cv2.VideoCapture(0)
+
+        while run:
+            ret, frame = cap.read()
+            if not ret:
+                st.error("Webcam access failed.")
+                break
+
+            results = model(frame, conf=conf, iou=iou)
+            annotated = results[0].plot()
+
+            FRAME_WINDOW.image(annotated)
+
+        cap.release()
+
+# --------------------------------------------------
 # EVALUATION DASHBOARD
-# -----------------------------
+# --------------------------------------------------
 if page == "Evaluation Dashboard":
-    st.title("📊 Evaluation Dashboard")
-    analysis_path = "analysis"
+    st.title("📊 Model Evaluation & Error Analysis")
+
+    analysis_path = st.text_input(
+        "Training Folder Path",
+        "runs/detect/train"
+    )
+
     if not os.path.exists(analysis_path):
-        st.error("Analysis folder not found!")
+        st.error("Invalid folder path.")
         st.stop()
 
     metrics_file = os.path.join(analysis_path, "results.csv")
-    if os.path.exists(metrics_file):
-        df = pd.read_csv(metrics_file)
-        # Column-safe
-        df.columns = [c.strip().lower().replace('-', '_') for c in df.columns]
-        column_map = {'mAP50':'map50','mAP50-95':'map50_95','precision':'precision','recall':'recall','loss':'loss'}
-        missing_cols = [v for k,v in column_map.items() if v not in df.columns]
-        if missing_cols:
-            st.error(f"Missing columns in CSV: {missing_cols}")
-        else:
-            latest = df.iloc[-1]
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("mAP50", f"{latest[column_map['mAP50']]*100:.2f}%")
-            col2.metric("mAP50-95", f"{latest[column_map['mAP50-95']]*100:.2f}%")
-            col3.metric("Precision", f"{latest[column_map['precision']]*100:.2f}%")
-            col4.metric("Recall", f"{latest[column_map['recall']]*100:.2f}%")
 
-            # Display images
-            col1_img, col2_img = st.columns(2)
-            with col1_img:
-                for fname in ["results.png","PR_curve.png","F1_curve.png"]:
-                    fpath = os.path.join(analysis_path,fname)
-                    if os.path.exists(fpath):
-                        st.image(fpath, caption=fname)
-            with col2_img:
-                fpath = os.path.join(analysis_path,"confusion_matrix.png")
-                if os.path.exists(fpath):
-                    st.image(fpath, caption="Confusion Matrix")
+    if not os.path.exists(metrics_file):
+        st.error("results.csv not found.")
+        st.stop()
 
-            # Training metric charts
-            st.subheader("📈 Training Metrics Over Epochs")
-            st.line_chart(df[[column_map['loss']]].rename(columns={column_map['loss']:'Loss'}))
-            st.line_chart(df[[column_map['precision']]].rename(columns={column_map['precision']:'Precision'}))
-            st.line_chart(df[[column_map['recall']]].rename(columns={column_map['recall']:'Recall'}))
+    df = pd.read_csv(metrics_file)
 
-            # Download CSV
-            with open(metrics_file,"rb") as file:
-                st.download_button("⬇ Download Results CSV", data=file, file_name="results.csv")
+    precision_col = "metrics/precision(B)"
+    recall_col = "metrics/recall(B)"
+    map50_col = "metrics/mAP50(B)"
+    map5095_col = "metrics/mAP50-95(B)"
+    loss_col = "train/box_loss"
 
-            # Download images
-            for fname in ["results.png","confusion_matrix.png","PR_curve.png","F1_curve.png"]:
-                fpath = os.path.join(analysis_path,fname)
-                if os.path.exists(fpath):
-                    with open(fpath,"rb") as file:
-                        st.download_button(f"⬇ Download {fname}", data=file, file_name=fname)
+    latest = df.iloc[-1]
+
+    col1,col2,col3,col4 = st.columns(4)
+
+    col1.metric("mAP50",
+                f"{latest[map50_col]*100:.2f}%")
+    col2.metric("mAP50-95",
+                f"{latest[map5095_col]*100:.2f}%")
+    col3.metric("Precision",
+                f"{latest[precision_col]*100:.2f}%")
+    col4.metric("Recall",
+                f"{latest[recall_col]*100:.2f}%")
+
+    st.subheader("📈 Training Graphs")
+    st.line_chart(df[[loss_col]].rename(
+        columns={loss_col:"Box Loss"}))
+    st.line_chart(df[[precision_col]].rename(
+        columns={precision_col:"Precision"}))
+    st.line_chart(df[[recall_col]].rename(
+        columns={recall_col:"Recall"}))
+
+    st.subheader("🔍 Error Analysis")
+
+    if latest[precision_col] < 0.6:
+        st.error("Low Precision → Too many False Positives")
+
+    if latest[recall_col] < 0.6:
+        st.error("Low Recall → Too many False Negatives")
+
+    if latest[map50_col] < 0.5:
+        st.warning("Low mAP → Improve dataset or train longer")
+
+    # Show confusion & PR curves
+    for img in ["confusion_matrix.png",
+                "PR_curve.png",
+                "F1_curve.png",
+                "results.png"]:
+        path = os.path.join(analysis_path, img)
+        if os.path.exists(path):
+            st.image(path)
