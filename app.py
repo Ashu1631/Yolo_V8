@@ -30,7 +30,6 @@ if not st.session_state.logged_in:
     st.title("🔐 Login")
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
-
     if st.button("Login"):
         if u in users and users[u]["password"] == p:
             st.session_state.logged_in = True
@@ -87,7 +86,6 @@ def extract_failures(results, image, filename):
 def generate_pdf(filename, model_name, counts, detect_time, fps):
     os.makedirs("outputs", exist_ok=True)
     pdf_path = f"outputs/{filename}_report.pdf"
-
     doc = SimpleDocTemplate(pdf_path, pagesize=letter)
     elements = []
     styles = getSampleStyleSheet()
@@ -114,11 +112,12 @@ if page == "Model Selection":
     st.title("📦 Model Selection")
     models = [f for f in os.listdir() if f.endswith(".pt")]
     sel = st.selectbox("Select Model", ["-- Select --"] + models)
-
     if sel != "-- Select --":
         st.session_state.model = YOLO(sel)
         st.session_state.model_name = sel
         st.success(f"{sel} Loaded Successfully ✅")
+        st.session_state.page = "Upload & Detect"
+        st.rerun()
 
 # ================= UPLOAD & DATASET =================
 if page == "Upload & Detect":
@@ -132,7 +131,6 @@ if page == "Upload & Detect":
 
     tab1, tab2 = st.tabs(["📤 Upload", "📂 Dataset"])
 
-    # -------- UPLOAD --------
     with tab1:
         file = st.file_uploader("Upload Image or Video", type=["jpg","png","jpeg","mp4"])
         compare = st.checkbox("Enable Compare (best.pt vs yolov8n.pt)")
@@ -143,7 +141,6 @@ if page == "Upload & Detect":
             with open(path,"wb") as f:
                 f.write(file.read())
 
-            # IMAGE
             if path.endswith(("jpg","png","jpeg")):
                 img = cv2.imread(path)
 
@@ -151,18 +148,13 @@ if page == "Upload & Detect":
                     col1, col2 = st.columns(2)
                     col1.markdown("### 🟢 best.pt")
                     col2.markdown("### 🔵 yolov8n.pt")
-
-                    r1 = YOLO("best.pt")(img)
-                    r2 = YOLO("yolov8n.pt")(img)
-
-                    col1.image(cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB))
-                    col2.image(cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB))
+                    col1.image(cv2.cvtColor(YOLO("best.pt")(img)[0].plot(), cv2.COLOR_BGR2RGB))
+                    col2.image(cv2.cvtColor(YOLO("yolov8n.pt")(img)[0].plot(), cv2.COLOR_BGR2RGB))
                 else:
                     start = time.time()
                     r = model(img)
                     detect_time = time.time() - start
                     fps = 1/detect_time if detect_time>0 else 0
-
                     annotated = r[0].plot()
                     st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
 
@@ -173,10 +165,16 @@ if page == "Upload & Detect":
                     with open(pdf,"rb") as f:
                         st.download_button("📄 Download Report", f)
 
-            # VIDEO
             if path.endswith("mp4"):
                 cap = cv2.VideoCapture(path)
-                frame_box = st.empty()
+
+                if compare:
+                    st.subheader("🟢 best.pt")
+                    best_window = st.empty()
+                    st.subheader("🔵 yolov8n.pt")
+                    yolo_window = st.empty()
+                else:
+                    frame_box = st.empty()
 
                 while cap.isOpened():
                     ret, frame = cap.read()
@@ -184,25 +182,14 @@ if page == "Upload & Detect":
                         break
 
                     if compare:
-                        r1 = YOLO("best.pt")(frame)
-                        r2 = YOLO("yolov8n.pt")(frame)
-
-                        left = r1[0].plot()
-                        right = r2[0].plot()
-
-                        cv2.putText(left,"best.pt",(20,40),cv2.FONT_HERSHEY_SIMPLEX,1,(0,255,0),2)
-                        cv2.putText(right,"yolov8n.pt",(20,40),cv2.FONT_HERSHEY_SIMPLEX,1,(255,0,0),2)
-
-                        annotated = np.hstack((left,right))
+                        best_window.image(cv2.cvtColor(YOLO("best.pt")(frame)[0].plot(), cv2.COLOR_BGR2RGB))
+                        yolo_window.image(cv2.cvtColor(YOLO("yolov8n.pt")(frame)[0].plot(), cv2.COLOR_BGR2RGB))
                     else:
-                        r = model(frame)
-                        annotated = r[0].plot()
-
-                    frame_box.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
+                        annotated = model(frame)[0].plot()
+                        frame_box.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
 
                 cap.release()
 
-    # -------- DATASET --------
     with tab2:
         dataset_path = "datasets"
         if os.path.exists(dataset_path):
@@ -217,15 +204,12 @@ if page == "Upload & Detect":
                     col1,col2 = st.columns(2)
                     col1.markdown("### 🟢 best.pt")
                     col2.markdown("### 🔵 yolov8n.pt")
-
-                    r1 = YOLO("best.pt")(img)
-                    r2 = YOLO("yolov8n.pt")(img)
-
-                    col1.image(cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB))
-                    col2.image(cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB))
+                    col1.image(cv2.cvtColor(YOLO("best.pt")(img)[0].plot(), cv2.COLOR_BGR2RGB))
+                    col2.image(cv2.cvtColor(YOLO("yolov8n.pt")(img)[0].plot(), cv2.COLOR_BGR2RGB))
                 else:
                     r = model(img)
                     st.image(cv2.cvtColor(r[0].plot(), cv2.COLOR_BGR2RGB))
+                    extract_failures(r,img,sel_img)
 
 # ================= WEBCAM =================
 if page == "Webcam Detection":
@@ -235,7 +219,6 @@ if page == "Webcam Detection":
         st.stop()
 
     model = st.session_state.model
-
     RTC_CONFIGURATION = RTCConfiguration(
         {"iceServers":[{"urls":["stun:stun.l.google.com:19302"]}]}
     )
@@ -243,8 +226,7 @@ if page == "Webcam Detection":
     class VideoProcessor(VideoProcessorBase):
         def recv(self, frame):
             img = frame.to_ndarray(format="bgr24")
-            results = model(img)
-            annotated = results[0].plot()
+            annotated = model(img)[0].plot()
             return av.VideoFrame.from_ndarray(annotated, format="bgr24")
 
     webrtc_streamer(
@@ -254,69 +236,59 @@ if page == "Webcam Detection":
         media_stream_constraints={"video":True,"audio":False}
     )
 
-# ================= EVALUATION DASHBOARD =================
+# ================= EVALUATION =================
 if page == "Evaluation Dashboard":
 
-    if not os.path.exists("analysis/results.csv"):
-        st.warning("analysis/results.csv not found")
-        st.stop()
+    st.title("📊 Evaluation Dashboard 🚀")
 
-    df = pd.read_csv("analysis/results.csv")
-    latest = df.iloc[-1]
+    if os.path.exists("analysis/results.csv"):
+        df = pd.read_csv("analysis/results.csv")
+        latest = df.iloc[-1]
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("mAP50", f"{latest['metrics/mAP50(B)']*100:.2f}%")
-    col2.metric("mAP50-95", f"{latest['metrics/mAP50-95(B)']*100:.2f}%")
-    col3.metric("Precision", f"{latest['metrics/precision(B)']*100:.2f}%")
-    col4.metric("Recall", f"{latest['metrics/recall(B)']*100:.2f}%")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("🎯 mAP50", f"{latest['metrics/mAP50(B)']*100:.2f}%")
+        col2.metric("📐 mAP50-95", f"{latest['metrics/mAP50-95(B)']*100:.2f}%")
+        col3.metric("📊 Precision", f"{latest['metrics/precision(B)']*100:.2f}%")
+        col4.metric("📈 Recall", f"{latest['metrics/recall(B)']*100:.2f}%")
 
-    st.subheader("📈 Train Loss")
-    st.line_chart(df[['train/box_loss','train/cls_loss','train/dfl_loss']])
+        st.subheader("📈 Train Loss")
+        st.line_chart(df[['train/box_loss','train/cls_loss','train/dfl_loss']])
 
-    st.subheader("📉 Validation Loss")
-    st.line_chart(df[['val/box_loss','val/cls_loss','val/dfl_loss']])
+        st.subheader("📉 Validation Loss")
+        st.line_chart(df[['val/box_loss','val/cls_loss','val/dfl_loss']])
 
-    if os.path.exists("analysis/confusion_matrix.png"):
-        st.subheader("🧩 Confusion Matrix")
-        st.image("analysis/confusion_matrix.png")
+        for f in ["analysis/results.png","analysis/PR_curve.png","analysis/F1_curve.png","analysis/confusion_matrix.png"]:
+            if os.path.exists(f):
+                st.image(f)
 
 # ================= MODEL COMPARISON =================
 if page == "Model Comparison":
 
-    if not os.path.exists("analysis/results.csv"):
-        st.warning("analysis/results.csv not found")
-        st.stop()
+    st.title("📊 Model Comparison")
 
     df = pd.read_csv("analysis/results.csv")
     latest = df.iloc[-1]
 
     comp_df = pd.DataFrame({
         "Metric":["mAP50","mAP50-95","Recall"],
-        "best.pt":[
-            latest['metrics/mAP50(B)'],
-            latest['metrics/mAP50-95(B)'],
-            latest['metrics/recall(B)']
-        ],
+        "best.pt":[latest['metrics/mAP50(B)'],latest['metrics/mAP50-95(B)'],latest['metrics/recall(B)']],
         "yolov8n.pt":np.random.uniform(0.5,0.9,3)
     })
 
-    st.dataframe(comp_df)
-    st.plotly_chart(px.bar(comp_df,x="Metric",y=["best.pt","yolov8n.pt"]))
-    st.plotly_chart(px.line(comp_df,x="Metric",y=["best.pt","yolov8n.pt"]))
-    st.plotly_chart(px.area(comp_df,x="Metric",y=["best.pt","yolov8n.pt"]))
-    st.plotly_chart(px.pie(comp_df,names="Metric",values="best.pt"))
+    st.subheader("📊 Bar Chart")
+    st.plotly_chart(px.bar(comp_df,x="Metric",y=["best.pt","yolov8n.pt"],title="Bar Comparison"))
 
+    st.subheader("📈 Line Chart")
+    st.plotly_chart(px.line(comp_df,x="Metric",y=["best.pt","yolov8n.pt"],title="Line Comparison"))
+
+    st.subheader("📉 Area Chart")
+    st.plotly_chart(px.area(comp_df,x="Metric",y=["best.pt","yolov8n.pt"],title="Area Comparison"))
+
+    st.subheader("🥧 Pie Chart")
+    st.plotly_chart(px.pie(comp_df,names="Metric",values="best.pt",title="Distribution"))
+
+    st.subheader("🛞 Radar Chart")
     fig = go.Figure()
-    fig.add_trace(go.Scatterpolar(
-        r=comp_df["best.pt"],
-        theta=comp_df["Metric"],
-        fill='toself',
-        name='best.pt'
-    ))
-    fig.add_trace(go.Scatterpolar(
-        r=comp_df["yolov8n.pt"],
-        theta=comp_df["Metric"],
-        fill='toself',
-        name='yolov8n.pt'
-    ))
+    fig.add_trace(go.Scatterpolar(r=comp_df["best.pt"],theta=comp_df["Metric"],fill='toself',name='best.pt'))
+    fig.add_trace(go.Scatterpolar(r=comp_df["yolov8n.pt"],theta=comp_df["Metric"],fill='toself',name='yolov8n.pt'))
     st.plotly_chart(fig)
