@@ -24,7 +24,7 @@ OUTPUT_DIR = "outputs"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # ==================================================
-# SESSION INIT
+# SESSION
 # ==================================================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -60,29 +60,8 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ==================================================
-# SIDEBAR NAVIGATION (FIXED ACTIVE STYLE)
+# NAVIGATION (CLEAR ACTIVE)
 # ==================================================
-st.sidebar.markdown("""
-<style>
-.stButton > button {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 6px;
-    border-radius: 8px;
-    cursor: pointer !important;
-}
-.stButton > button:hover {
-    background-color: #1f2937 !important;
-}
-.active-page > button {
-    background-color: #00FFFF !important;
-    color: black !important;
-    font-weight: bold !important;
-    border: 2px solid white !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
 st.sidebar.markdown("## 🚀 Navigation")
 
 pages = [
@@ -93,20 +72,14 @@ pages = [
     "Failure Cases"
 ]
 
-for p in pages:
-    container = st.sidebar.container()
-    if st.session_state.page == p:
-        container.markdown('<div class="active-page">', unsafe_allow_html=True)
-        if container.button(p, key=p):
-            st.session_state.page = p
-            st.rerun()
-        container.markdown("</div>", unsafe_allow_html=True)
-    else:
-        if container.button(p, key=p):
-            st.session_state.page = p
-            st.rerun()
+selected = st.sidebar.radio(
+    "",
+    pages,
+    index=pages.index(st.session_state.page)
+)
 
-page = st.session_state.page
+st.session_state.page = selected
+page = selected
 
 # ==================================================
 # HELPER FUNCTIONS
@@ -129,35 +102,26 @@ def show_bar_chart(counts):
         ax.set_title("Detected Objects Per Class")
         st.pyplot(fig)
 
-def generate_report(name, counts, time_taken):
-    report = f"YOLO Detection Report\n\nFile: {name}\nTime: {time_taken:.2f} sec\n\nCounts:\n"
-    for k, v in counts.items():
-        report += f"{k}: {v}\n"
-    path = os.path.join(OUTPUT_DIR, f"report_{name}.txt")
-    with open(path, "w") as f:
-        f.write(report)
-    return path
-
 # ==================================================
 # MODEL SELECTION
 # ==================================================
 if page == "Model Selection":
     st.title("📦 Model Selection")
     models = [f for f in os.listdir() if f.endswith(".pt")]
-    selected = st.selectbox("Select Model", ["-- Select --"] + models)
+    selected_model = st.selectbox("Select Model", ["-- Select --"] + models)
 
-    if selected != "-- Select --":
-        st.session_state.model_object = YOLO(selected)
+    if selected_model != "-- Select --":
+        st.session_state.model_object = YOLO(selected_model)
         st.session_state.page = "Upload & Detect"
         st.rerun()
 
 # ==================================================
-# UPLOAD & DETECT
+# UPLOAD & DATASET
 # ==================================================
 if page == "Upload & Detect":
 
     if not st.session_state.model_object:
-        st.warning("Load model first.")
+        st.warning("Please load model first.")
         st.stop()
 
     model = st.session_state.model_object
@@ -165,57 +129,59 @@ if page == "Upload & Detect":
     uploaded = st.file_uploader("Upload Image/Video",
                                 type=["jpg", "png", "jpeg", "mp4"])
 
-    if uploaded:
+    # ================= IMAGE =================
+    if uploaded and uploaded.name.lower().endswith(("jpg", "png", "jpeg")):
         path = os.path.join(tempfile.gettempdir(), uploaded.name)
         with open(path, "wb") as f:
             f.write(uploaded.read())
 
-        if uploaded.name.endswith(("jpg", "png", "jpeg")):
-            start = time.time()
-            results = model(path)
-            end = time.time()
+        results = model(path)
+        img = cv2.cvtColor(results[0].plot(), cv2.COLOR_BGR2RGB)
+        st.image(img)
 
-            img = cv2.cvtColor(results[0].plot(), cv2.COLOR_BGR2RGB)
-            st.image(img)
+        counts = get_counts(results)
+        st.json(counts)
+        show_bar_chart(counts)
 
-            counts = get_counts(results)
-            st.json(counts)
-            show_bar_chart(counts)
+        # Compare
+        if st.checkbox("Compare best.pt vs yolov8n.pt"):
+            model1 = YOLO("best.pt")
+            model2 = YOLO("yolov8n.pt")
 
-            save_path = os.path.join(OUTPUT_DIR, f"detected_{uploaded.name}")
-            cv2.imwrite(save_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+            r1 = model1(path)
+            r2 = model2(path)
 
-            st.download_button("Download Image",
-                               open(save_path, "rb"),
-                               file_name=os.path.basename(save_path))
+            img1 = cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB)
+            img2 = cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB)
 
-            report_path = generate_report(uploaded.name, counts, end-start)
-            st.download_button("Download Report",
-                               open(report_path, "rb"),
-                               file_name=os.path.basename(report_path))
+            col1, col2 = st.columns(2)
+            col1.image(img1, caption="best.pt")
+            col2.image(img2, caption="yolov8n.pt")
 
-            # Compare Upload
-            compare_upload = st.checkbox("Compare best.pt vs yolov8n.pt")
-            if compare_upload:
-                model_best = YOLO("best.pt")
-                model_nano = YOLO("yolov8n.pt")
+    # ================= VIDEO =================
+    if uploaded and uploaded.name.lower().endswith("mp4"):
+        path = os.path.join(tempfile.gettempdir(), uploaded.name)
+        with open(path, "wb") as f:
+            f.write(uploaded.read())
 
-                r1 = model_best(path)
-                r2 = model_nano(path)
+        cap = cv2.VideoCapture(path)
+        stframe = st.empty()
 
-                img1 = cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB)
-                img2 = cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB)
-
-                col1, col2 = st.columns(2)
-                col1.image(img1, caption="best.pt")
-                col2.image(img2, caption="yolov8n.pt")
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+            results = model(frame)
+            annotated = results[0].plot()
+            stframe.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
+        cap.release()
 
     # ================= DATASET =================
     st.subheader("📂 Dataset Images")
 
     dataset_path = "datasets"
 
-    if os.path.exists(dataset_path):
+    if not uploaded and os.path.exists(dataset_path):
         dataset_images = [
             f for f in os.listdir(dataset_path)
             if f.lower().endswith((".jpg", ".png", ".jpeg"))
@@ -233,13 +199,12 @@ if page == "Upload & Detect":
                 img = cv2.cvtColor(results[0].plot(), cv2.COLOR_BGR2RGB)
                 st.image(img)
 
-                compare_dataset = st.checkbox("Compare Models (Dataset)")
-                if compare_dataset:
-                    model_best = YOLO("best.pt")
-                    model_nano = YOLO("yolov8n.pt")
+                if st.checkbox("Compare Models (Dataset)"):
+                    model1 = YOLO("best.pt")
+                    model2 = YOLO("yolov8n.pt")
 
-                    r1 = model_best(img_path)
-                    r2 = model_nano(img_path)
+                    r1 = model1(img_path)
+                    r2 = model2(img_path)
 
                     img1 = cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB)
                     img2 = cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB)
@@ -251,50 +216,31 @@ if page == "Upload & Detect":
 # ==================================================
 # WEBCAM (SAFE VERSION)
 # ==================================================
-class SafeDualProcessor(VideoProcessorBase):
+class SafeProcessor(VideoProcessorBase):
     def __init__(self):
-        self.model1 = YOLO("best.pt")
-        self.model2 = YOLO("yolov8n.pt")
-        self.prev = time.time()
+        self.model = YOLO("best.pt")
 
     def recv(self, frame):
         img = frame.to_ndarray(format="bgr24")
-        img = cv2.resize(img, (640, 480))
-        try:
-            r1 = self.model1(img)
-            r2 = self.model2(img)
-
-            f1 = r1[0].plot()
-            f2 = r2[0].plot()
-
-            combined = np.hstack((f1, f2))
-
-            now = time.time()
-            fps = 1 / (now - self.prev)
-            self.prev = now
-
-            cv2.putText(combined, f"FPS:{int(fps)}",
-                        (20, 40), cv2.FONT_HERSHEY_SIMPLEX,
-                        1, (0, 255, 0), 2)
-
-            return av.VideoFrame.from_ndarray(combined, format="bgr24")
-        except:
-            return frame
+        results = self.model(img)
+        annotated = results[0].plot()
+        return av.VideoFrame.from_ndarray(annotated, format="bgr24")
 
 if page == "Webcam Detection":
-    st.title("📷 Multi Model Live Comparison")
+    st.title("📷 Webcam Detection")
 
     webrtc_streamer(
-        key="dual",
-        video_processor_factory=SafeDualProcessor,
+        key="webcam",
+        video_processor_factory=SafeProcessor,
         media_stream_constraints={"video": True, "audio": False}
     )
 
 # ==================================================
-# EVALUATION DASHBOARD (RESTORED)
+# EVALUATION DASHBOARD
 # ==================================================
 if page == "Evaluation Dashboard":
     path = "analysis/results.csv"
+
     if os.path.exists(path):
         df = pd.read_csv(path)
         latest = df.iloc[-1]
@@ -308,9 +254,9 @@ if page == "Evaluation Dashboard":
         st.line_chart(df[['metrics/precision(B)']])
         st.line_chart(df[['metrics/recall(B)']])
 
-        cm_csv = "analysis/confusion_matrix.csv"
-        if os.path.exists(cm_csv):
-            cm = pd.read_csv(cm_csv, index_col=0)
+        cm_path = "analysis/confusion_matrix.csv"
+        if os.path.exists(cm_path):
+            cm = pd.read_csv(cm_path, index_col=0)
             fig = px.imshow(cm, text_auto=True,
                             color_continuous_scale="Blues")
             st.plotly_chart(fig, use_container_width=True)
@@ -323,12 +269,9 @@ if page == "Evaluation Dashboard":
 if page == "Failure Cases":
     st.title("🚨 Failure Case Analysis")
 
-    base_path = os.path.join("analysis", "failure_cases")
-
-    case_type = st.selectbox(
-        "Select Failure Type",
-        ["False Positives", "False Negatives", "Small Objects"]
-    )
+    base = "analysis/failure_cases"
+    case = st.selectbox("Select Type",
+                        ["False Positives", "False Negatives", "Small Objects"])
 
     folder_map = {
         "False Positives": "false_positives",
@@ -336,20 +279,20 @@ if page == "Failure Cases":
         "Small Objects": "small_objects"
     }
 
-    selected_folder = os.path.join(base_path, folder_map[case_type])
+    folder = os.path.join(base, folder_map[case])
 
-    if os.path.exists(selected_folder):
-        images = [f for f in os.listdir(selected_folder)
-                  if f.lower().endswith((".jpg", ".png", ".jpeg"))]
+    if os.path.exists(folder):
+        images = [f for f in os.listdir(folder)
+                  if f.lower().endswith((".jpg", ".png"))]
 
         if images:
             cols = st.columns(3)
             for i, img_name in enumerate(images):
-                img_path = os.path.join(selected_folder, img_name)
+                img_path = os.path.join(folder, img_name)
                 cols[i % 3].image(img_path,
                                   caption=img_name,
                                   use_container_width=True)
         else:
-            st.info("No images found in this category.")
+            st.info("No images found.")
     else:
-        st.info("Failure cases folder not found.")
+        st.info("Failure folder not found.")
