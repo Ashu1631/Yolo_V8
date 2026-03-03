@@ -18,7 +18,7 @@ from reportlab.lib.units import inch
 st.set_page_config(page_title="YOLOv8 Enterprise AI", layout="wide")
 
 # ==========================================================
-# LOGIN (users.yaml based)
+# LOGIN
 # ==========================================================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -51,9 +51,10 @@ if "model" not in st.session_state:
     st.session_state.model = None
 
 # ==========================================================
-# NAVIGATION (fixed spacing)
+# NAVIGATION (FIXED PROPERLY)
 # ==========================================================
 st.sidebar.markdown("## 🚀 Navigation")
+
 pages = [
     "Model Selection",
     "Upload & Detect",
@@ -63,17 +64,28 @@ pages = [
     "Model Comparison"
 ]
 
-for p in pages:
-    selected = st.session_state.page == p
-    color = "#28a745" if selected else "#dc3545"
-    if st.sidebar.button(p, key=f"nav_{p}", use_container_width=True):
-        st.session_state.page = p
-        st.rerun()
-    st.sidebar.markdown(
-        f"<style>button[data-testid='baseButton-nav_{p}']"
-        f"{{background:{color};color:white;margin:3px 0px;}}</style>",
-        unsafe_allow_html=True
-    )
+selected_page = st.sidebar.radio(
+    "",
+    pages,
+    index=pages.index(st.session_state.page)
+)
+
+st.session_state.page = selected_page
+
+st.markdown("""
+<style>
+section[data-testid="stSidebar"] div[role="radiogroup"] > label {
+    background-color: #dc3545;
+    padding: 8px;
+    margin-bottom: 5px;
+    border-radius: 6px;
+    color: white;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] > label[data-selected="true"] {
+    background-color: #28a745 !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 page = st.session_state.page
 
@@ -91,7 +103,6 @@ def detection_summary(results):
         label = names[int(c)]
         counts[label] = counts.get(label, 0) + 1
     return counts
-
 
 def generate_pdf_report(image_path, detection_counts):
     os.makedirs("outputs", exist_ok=True)
@@ -113,7 +124,6 @@ def generate_pdf_report(image_path, detection_counts):
 
     doc.build(elements)
     return pdf_path
-
 
 # ==========================================================
 # MODEL SELECTION
@@ -146,7 +156,8 @@ if page == "Upload & Detect":
                                     type=["jpg", "png", "jpeg", "mp4"])
 
         if uploaded:
-            compare = st.checkbox("Enable Comparison (best.pt vs yolov8n.pt)")
+            compare = st.checkbox("Enable Comparison")
+
             temp_path = uploaded.name
             with open(temp_path, "wb") as f:
                 f.write(uploaded.read())
@@ -154,7 +165,6 @@ if page == "Upload & Detect":
             # IMAGE
             if temp_path.endswith(("jpg", "png", "jpeg")):
                 img = cv2.imread(temp_path)
-                start = time.time()
 
                 if compare:
                     col1, col2 = st.columns(2)
@@ -162,43 +172,15 @@ if page == "Upload & Detect":
                     r1 = YOLO("best.pt")(img)
                     r2 = YOLO("yolov8n.pt")(img)
 
-                    col1.markdown("### 🟢 best.pt")
+                    col1.markdown("### 🟢 BEST.PT")
                     col1.image(cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB))
 
-                    col2.markdown("### 🔵 yolov8n.pt")
+                    col2.markdown("### 🔵 YOLOV8N.PT")
                     col2.image(cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB))
                 else:
                     r = model(img)
-                    fps = 1 / (time.time() - start)
                     annotated = r[0].plot()
-                    cv2.putText(annotated, f"FPS: {fps:.2f}",
-                                (20, 40),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                1, (0, 255, 0), 2)
-
                     st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
-
-                    # Analytics Summary
-                    counts = detection_summary(r)
-                    if counts:
-                        df_counts = pd.DataFrame({
-                            "Class": list(counts.keys()),
-                            "Count": list(counts.values())
-                        })
-                        st.subheader("📊 Detection Analytics Summary")
-                        st.dataframe(df_counts)
-                        st.plotly_chart(px.bar(df_counts,
-                                               x="Class", y="Count"))
-
-                        annotated_path = "outputs/annotated_image.jpg"
-                        os.makedirs("outputs", exist_ok=True)
-                        cv2.imwrite(annotated_path, annotated)
-
-                        pdf_path = generate_pdf_report(annotated_path, counts)
-                        with open(pdf_path, "rb") as f:
-                            st.download_button("📄 Download PDF Report",
-                                               f,
-                                               "detection_report.pdf")
 
             # VIDEO
             if temp_path.endswith("mp4"):
@@ -217,12 +199,15 @@ if page == "Upload & Detect":
                         left = r1[0].plot()
                         right = r2[0].plot()
 
-                        cv2.putText(left, "best.pt", (20,40),
+                        cv2.rectangle(left,(0,0),(250,60),(0,255,0),-1)
+                        cv2.putText(left,"BEST.PT",(20,40),
                                     cv2.FONT_HERSHEY_SIMPLEX,
-                                    1,(0,255,0),2)
-                        cv2.putText(right, "yolov8n.pt", (20,40),
+                                    1,(0,0,0),2)
+
+                        cv2.rectangle(right,(0,0),(250,60),(255,0,0),-1)
+                        cv2.putText(right,"YOLOV8N.PT",(20,40),
                                     cv2.FONT_HERSHEY_SIMPLEX,
-                                    1,(255,0,0),2)
+                                    1,(255,255,255),2)
 
                         annotated = np.hstack((left, right))
                     else:
@@ -245,64 +230,46 @@ if page == "Upload & Detect":
 
             if selected_img != "-- Select --":
                 img = cv2.imread(os.path.join(dataset_path, selected_img))
-                r = model(img)
-                st.image(cv2.cvtColor(r[0].plot(), cv2.COLOR_BGR2RGB))
+                compare_ds = st.checkbox("Enable Dataset Comparison")
+
+                if compare_ds:
+                    col1, col2 = st.columns(2)
+                    r1 = YOLO("best.pt")(img)
+                    r2 = YOLO("yolov8n.pt")(img)
+                    col1.markdown("### 🟢 BEST.PT")
+                    col1.image(cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB))
+                    col2.markdown("### 🔵 YOLOV8N.PT")
+                    col2.image(cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB))
+                else:
+                    r = model(img)
+                    st.image(cv2.cvtColor(r[0].plot(), cv2.COLOR_BGR2RGB))
 
 # ==========================================================
-# WEBCAM (Cloud Optimized)
-# ==========================================================
-if page == "Webcam Detection":
-
-    if not st.session_state.model:
-        st.warning("Load model first.")
-        st.stop()
-
-    model = st.session_state.model
-
-    RTC_CONFIGURATION = RTCConfiguration(
-        {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
-    )
-
-    class VideoProcessor(VideoProcessorBase):
-        def recv(self, frame):
-            img = frame.to_ndarray(format="bgr24")
-            results = model(img)
-            annotated = results[0].plot()
-            return av.VideoFrame.from_ndarray(annotated, format="bgr24")
-
-    webrtc_streamer(
-        key="webcam",
-        video_processor_factory=VideoProcessor,
-        rtc_configuration=RTC_CONFIGURATION,
-        media_stream_constraints={"video": True, "audio": False},
-        async_processing=True
-    )
-
-# ==========================================================
-# EVALUATION
+# EVALUATION (EXPANDED)
 # ==========================================================
 if page == "Evaluation Dashboard":
     st.title("📊 Evaluation Dashboard")
-    csv_path = "analysis/results.csv"
 
-    if os.path.exists(csv_path):
-        df = pd.read_csv(csv_path)
+    if os.path.exists("analysis/results.csv"):
+        df = pd.read_csv("analysis/results.csv")
         latest = df.iloc[-1]
 
         col1,col2,col3,col4 = st.columns(4)
-        col1.metric("mAP50",
-                    f"{latest['metrics/mAP50(B)']*100:.2f}%")
-        col2.metric("mAP50-95",
-                    f"{latest['metrics/mAP50-95(B)']*100:.2f}%")
-        col3.metric("Precision",
-                    f"{latest['metrics/precision(B)']*100:.2f}%")
-        col4.metric("Recall",
-                    f"{latest['metrics/recall(B)']*100:.2f}%")
+        col1.metric("mAP50", f"{latest['metrics/mAP50(B)']*100:.2f}%")
+        col2.metric("mAP50-95", f"{latest['metrics/mAP50-95(B)']*100:.2f}%")
+        col3.metric("Precision", f"{latest['metrics/precision(B)']*100:.2f}%")
+        col4.metric("Recall", f"{latest['metrics/recall(B)']*100:.2f}%")
 
         st.subheader("Loss Curve")
         st.line_chart(df[['train/box_loss',
                           'train/cls_loss',
                           'train/dfl_loss']])
+
+        st.subheader("Stacked Overview")
+        overview = df[['metrics/mAP50(B)',
+                       'metrics/mAP50-95(B)',
+                       'metrics/recall(B)']]
+        st.area_chart(overview)
 
         if os.path.exists("analysis/confusion_matrix.png"):
             st.subheader("Confusion Matrix")
@@ -319,17 +286,15 @@ if page == "Failure Cases":
         selected = st.selectbox("Select Failure Case", files)
         st.image(os.path.join("failure_cases", selected))
     else:
-        st.info("No failure data found.")
+        st.info("No failure cases available.")
 
 # ==========================================================
-# MODEL COMPARISON
+# MODEL COMPARISON (EXPANDED)
 # ==========================================================
 if page == "Model Comparison":
-
     st.title("🚀 Model Comparison")
 
     if os.path.exists("analysis/results.csv"):
-
         df = pd.read_csv("analysis/results.csv")
         latest = df.iloc[-1]
 
@@ -345,17 +310,18 @@ if page == "Model Comparison":
             "yolov8n.pt": np.random.uniform(0.5,0.9,3)
         })
 
-        st.plotly_chart(px.bar(comp_df,
-                               x="Metric",
+        st.dataframe(comp_df)
+
+        st.plotly_chart(px.bar(comp_df, x="Metric",
                                y=["best.pt","yolov8n.pt"]))
 
-        st.plotly_chart(px.line(comp_df,
-                                x="Metric",
+        st.plotly_chart(px.line(comp_df, x="Metric",
                                 y=["best.pt","yolov8n.pt"]))
 
-        st.plotly_chart(px.area(comp_df,
-                                x="Metric",
+        st.plotly_chart(px.area(comp_df, x="Metric",
                                 y=["best.pt","yolov8n.pt"]))
+
+        st.plotly_chart(px.histogram(comp_df, x="best.pt"))
 
         st.plotly_chart(px.pie(comp_df,
                                names="Metric",
