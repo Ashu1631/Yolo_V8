@@ -10,8 +10,6 @@ import plotly.graph_objects as go
 from ultralytics import YOLO
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
 import av
-
-# PDF
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import letter
@@ -32,7 +30,6 @@ if not st.session_state.logged_in:
     st.title("🔐 Login")
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
-
     if st.button("Login"):
         if u in users and users[u]["password"] == p:
             st.session_state.logged_in = True
@@ -61,24 +58,23 @@ pages = [
 ]
 
 for p in pages:
-    is_selected = st.session_state.page == p
-
+    selected = st.session_state.page == p
     if st.sidebar.button(p, key=f"nav_{p}", use_container_width=True):
         st.session_state.page = p
         st.rerun()
 
-    color = "#28a745" if is_selected else "#dc3545"
+    color = "#28a745" if selected else "#dc3545"
 
     st.sidebar.markdown(f"""
-        <style>
-        button[data-testid="baseButton-nav_{p}"] {{
-            background-color:{color} !important;
-            color:white !important;
-            border-radius:6px !important;
-            margin:4px 0px !important;
-            cursor:pointer !important;
-        }}
-        </style>
+    <style>
+    button[data-testid="baseButton-nav_{p}"] {{
+        background-color:{color} !important;
+        color:white !important;
+        border-radius:6px !important;
+        margin:4px 0px !important;
+        cursor:pointer !important;
+    }}
+    </style>
     """, unsafe_allow_html=True)
 
 page = st.session_state.page
@@ -99,12 +95,10 @@ def detection_summary(results):
 def extract_failures(results, image, filename):
     os.makedirs("failure_cases/false_positive", exist_ok=True)
     os.makedirs("failure_cases/false_negative", exist_ok=True)
-
     boxes = results[0].boxes
     if boxes is None or len(boxes) == 0:
         cv2.imwrite(f"failure_cases/false_negative/{filename}", image)
         return
-
     conf = boxes.conf.cpu().numpy()
     if any(conf < 0.25):
         cv2.imwrite(f"failure_cases/false_positive/{filename}", image)
@@ -138,7 +132,6 @@ if page == "Model Selection":
     st.title("📦 Model Selection")
     models = [f for f in os.listdir() if f.endswith(".pt")]
     sel = st.selectbox("Select Model", ["-- Select --"] + models)
-
     if sel != "-- Select --":
         st.session_state.model = YOLO(sel)
         st.session_state.model_name = sel
@@ -157,15 +150,14 @@ if page == "Upload & Detect":
 
     tab1, tab2 = st.tabs(["📤 Upload", "📂 Dataset"])
 
-    # ---------- UPLOAD ----------
     with tab1:
         file = st.file_uploader("Upload Image/Video", type=["jpg","png","jpeg","mp4"])
 
         if file:
-            compare = st.checkbox("Enable Compare (best.pt vs yolov8n.pt)")
+            compare = st.checkbox("Enable Compare")
+
             os.makedirs("temp", exist_ok=True)
             path = os.path.join("temp", file.name)
-
             with open(path,"wb") as f:
                 f.write(file.read())
 
@@ -174,121 +166,65 @@ if page == "Upload & Detect":
                 img = cv2.imread(path)
 
                 if compare:
-                    col1,col2 = st.columns(2)
+                    st.subheader("🟢 BEST.PT")
                     r1 = YOLO("best.pt")(img)
+                    st.image(cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB))
+
+                    st.subheader("🔵 YOLOV8N.PT")
                     r2 = YOLO("yolov8n.pt")(img)
-
-                    left = r1[0].plot()
-                    right = r2[0].plot()
-
-                    cv2.putText(left,"BEST.PT",(20,40),
-                                cv2.FONT_HERSHEY_SIMPLEX,1,(0,255,0),2)
-                    cv2.putText(right,"YOLOV8N.PT",(20,40),
-                                cv2.FONT_HERSHEY_SIMPLEX,1,(255,0,0),2)
-
-                    col1.image(cv2.cvtColor(left,cv2.COLOR_BGR2RGB))
-                    col2.image(cv2.cvtColor(right,cv2.COLOR_BGR2RGB))
-
+                    st.image(cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB))
                 else:
-                    start=time.time()
-                    r=model(img)
-                    detect_time=time.time()-start
-                    fps=1/detect_time if detect_time>0 else 0
+                    start = time.time()
+                    r = model(img)
+                    detect_time = time.time() - start
+                    fps = 1/detect_time if detect_time>0 else 0
 
-                    annotated=r[0].plot()
-                    st.image(cv2.cvtColor(annotated,cv2.COLOR_BGR2RGB))
+                    annotated = r[0].plot()
+                    st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
 
-                    counts=detection_summary(r)
+                    counts = detection_summary(r)
                     extract_failures(r,img,file.name)
 
-                    pdf=generate_pdf_report(file.name,model_name,counts,detect_time,fps)
+                    pdf = generate_pdf_report(file.name, model_name, counts, detect_time, fps)
                     with open(pdf,"rb") as f:
                         st.download_button("📄 Download Report",f)
 
-            # VIDEO
-            if path.endswith("mp4"):
-                cap=cv2.VideoCapture(path)
-                frame_box=st.empty()
-
-                while cap.isOpened():
-                    ret,frame=cap.read()
-                    if not ret:
-                        break
-
-                    if compare:
-                        r1=YOLO("best.pt")(frame)
-                        r2=YOLO("yolov8n.pt")(frame)
-
-                        left=r1[0].plot()
-                        right=r2[0].plot()
-
-                        cv2.putText(left,"BEST.PT",(20,40),
-                                    cv2.FONT_HERSHEY_SIMPLEX,1,(0,255,0),2)
-                        cv2.putText(right,"YOLOV8N.PT",(20,40),
-                                    cv2.FONT_HERSHEY_SIMPLEX,1,(255,0,0),2)
-
-                        annotated=np.hstack((left,right))
-                    else:
-                        r=model(frame)
-                        annotated=r[0].plot()
-
-                    frame_box.image(cv2.cvtColor(annotated,cv2.COLOR_BGR2RGB))
-
-                cap.release()
-
-    # ---------- DATASET ----------
     with tab2:
         dataset_path="datasets"
         if os.path.exists(dataset_path):
             imgs=[f for f in os.listdir(dataset_path)
                   if f.endswith(("jpg","png","jpeg"))]
 
-            if imgs:
-                sel_img=st.selectbox("Select Dataset Image",imgs)
-                compare_ds=st.checkbox("Enable Dataset Compare")
+            sel_img = st.selectbox("Select Dataset Image", ["-- Select --"] + imgs)
 
-                img=cv2.imread(os.path.join(dataset_path,sel_img))
+            if sel_img != "-- Select --":
+                compare_ds = st.checkbox("Enable Dataset Compare")
+                img = cv2.imread(os.path.join(dataset_path,sel_img))
 
                 if compare_ds:
-                    col1,col2=st.columns(2)
-                    r1=YOLO("best.pt")(img)
-                    r2=YOLO("yolov8n.pt")(img)
+                    st.subheader("🟢 BEST.PT")
+                    r1 = YOLO("best.pt")(img)
+                    st.image(cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB))
 
-                    left=r1[0].plot()
-                    right=r2[0].plot()
-
-                    cv2.putText(left,"BEST.PT",(20,40),
-                                cv2.FONT_HERSHEY_SIMPLEX,1,(0,255,0),2)
-                    cv2.putText(right,"YOLOV8N.PT",(20,40),
-                                cv2.FONT_HERSHEY_SIMPLEX,1,(255,0,0),2)
-
-                    col1.image(cv2.cvtColor(left,cv2.COLOR_BGR2RGB))
-                    col2.image(cv2.cvtColor(right,cv2.COLOR_BGR2RGB))
+                    st.subheader("🔵 YOLOV8N.PT")
+                    r2 = YOLO("yolov8n.pt")(img)
+                    st.image(cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB))
                 else:
-                    r=model(img)
-                    st.image(cv2.cvtColor(r[0].plot(),cv2.COLOR_BGR2RGB))
+                    r = model(img)
+                    st.image(cv2.cvtColor(r[0].plot(), cv2.COLOR_BGR2RGB))
                     extract_failures(r,img,sel_img)
 
 # ================= WEBCAM =================
 if page=="Webcam Detection":
-
-    if not st.session_state.model:
-        st.warning("Load model first")
-        st.stop()
-
-    model=st.session_state.model
-
+    model = st.session_state.model
     RTC_CONFIGURATION=RTCConfiguration(
         {"iceServers":[{"urls":["stun:stun.l.google.com:19302"]}]}
     )
 
     class VideoProcessor(VideoProcessorBase):
-        def __init__(self):
-            self.model=model
-
         def recv(self,frame):
             img=frame.to_ndarray(format="bgr24")
-            results=self.model(img)
+            results=model(img)
             annotated=results[0].plot()
             return av.VideoFrame.from_ndarray(annotated,format="bgr24")
 
@@ -296,14 +232,11 @@ if page=="Webcam Detection":
         key="webcam_stream",
         video_processor_factory=VideoProcessor,
         rtc_configuration=RTC_CONFIGURATION,
-        media_stream_constraints={"video":True,"audio":False},
-        async_processing=True
+        media_stream_constraints={"video":True,"audio":False}
     )
 
 # ================= EVALUATION =================
 if page=="Evaluation Dashboard":
-    st.title("📊 Evaluation Dashboard")
-
     if os.path.exists("analysis/results.csv"):
         df=pd.read_csv("analysis/results.csv")
         latest=df.iloc[-1]
@@ -314,36 +247,25 @@ if page=="Evaluation Dashboard":
         col3.metric("Precision",f"{latest['metrics/precision(B)']*100:.2f}%")
         col4.metric("Recall",f"{latest['metrics/recall(B)']*100:.2f}%")
 
-        loss_cols=[
-            'train/box_loss','train/cls_loss','train/dfl_loss',
-            'val/box_loss','val/cls_loss','val/dfl_loss'
-        ]
-        st.subheader("Train + Val Loss Overview")
-        st.line_chart(df[loss_cols])
+        st.subheader("Train Box Loss")
+        st.line_chart(df[['train/box_loss']])
+        st.subheader("Train Class Loss")
+        st.line_chart(df[['train/cls_loss']])
+        st.subheader("Train DFL Loss")
+        st.line_chart(df[['train/dfl_loss']])
+
+        st.subheader("Val Box Loss")
+        st.line_chart(df[['val/box_loss']])
+        st.subheader("Val Class Loss")
+        st.line_chart(df[['val/cls_loss']])
+        st.subheader("Val DFL Loss")
+        st.line_chart(df[['val/dfl_loss']])
 
         if os.path.exists("analysis/confusion_matrix.png"):
-            st.subheader("Confusion Matrix")
             st.image("analysis/confusion_matrix.png")
-
-# ================= FAILURE CASES =================
-if page=="Failure Cases":
-    st.title("⚠ Failure Cases")
-    categories=["false_positive","false_negative"]
-    sel=st.selectbox("Select Type",categories)
-
-    folder=f"failure_cases/{sel}"
-    if os.path.exists(folder):
-        files=os.listdir(folder)
-        if files:
-            img_sel=st.selectbox("Select Image",files)
-            st.image(os.path.join(folder,img_sel))
-        else:
-            st.info("No images found")
 
 # ================= MODEL COMPARISON =================
 if page=="Model Comparison":
-    st.title("📊 Model Comparison")
-
     if os.path.exists("analysis/results.csv"):
         df=pd.read_csv("analysis/results.csv")
         latest=df.iloc[-1]
@@ -360,12 +282,20 @@ if page=="Model Comparison":
             "yolov8n.pt":np.random.uniform(0.5,0.9,3)
         })
 
-        st.plotly_chart(px.bar(comp_df,x="Metric",
-                               y=["best.pt","yolov8n.pt"]))
-        st.plotly_chart(px.line(comp_df,x="Metric",
-                                y=["best.pt","yolov8n.pt"]))
-        st.plotly_chart(px.area(comp_df,x="Metric",
-                                y=["best.pt","yolov8n.pt"]))
-        st.plotly_chart(px.pie(comp_df,
-                               names="Metric",
-                               values="best.pt"))
+        st.plotly_chart(px.area(comp_df,x="Metric",y=["best.pt","yolov8n.pt"]))
+        st.plotly_chart(px.pie(comp_df,names="Metric",values="best.pt"))
+
+        fig=go.Figure()
+        fig.add_trace(go.Scatterpolar(
+            r=list(comp_df["best.pt"]),
+            theta=list(comp_df["Metric"]),
+            fill='toself',
+            name='best.pt'
+        ))
+        fig.add_trace(go.Scatterpolar(
+            r=list(comp_df["yolov8n.pt"]),
+            theta=list(comp_df["Metric"]),
+            fill='toself',
+            name='yolov8n.pt'
+        ))
+        st.plotly_chart(fig)
