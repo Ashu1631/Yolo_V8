@@ -3,7 +3,6 @@ import os
 import cv2
 import time
 import tempfile
-import shutil
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -14,45 +13,31 @@ from PIL import Image
 # ======================================================
 # PAGE CONFIG
 # ======================================================
-st.set_page_config(page_title="YOLOv8 Enterprise System", layout="wide")
+st.set_page_config(page_title="YOLOv8 Enterprise AI System", layout="wide")
 
-# ======================================================
-# CUSTOM CSS (UI Friendly)
-# ======================================================
 st.markdown("""
 <style>
-.sidebar .sidebar-content {
-    padding-top: 40px;
-}
-.block-container {
-    padding-top: 1rem;
-}
+.block-container {padding-top: 1rem;}
+.sidebar .sidebar-content {padding-top: 30px;}
 </style>
 """, unsafe_allow_html=True)
 
 # ======================================================
-# GLOBAL PATHS
+# GLOBAL DIRECTORIES
 # ======================================================
 OUTPUT_DIR = "outputs"
 DATASET_DIR = "dataset"
 FAILURE_DIR = os.path.join(OUTPUT_DIR, "failures")
-TRAIN_RUN = "runs/detect/train"
+RUNS_DIR = "runs/detect"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(DATASET_DIR, exist_ok=True)
 os.makedirs(FAILURE_DIR, exist_ok=True)
 
 # ======================================================
-# MODEL LOADING
+# MODEL SELECTION SYSTEM
 # ======================================================
-@st.cache_resource
-def load_model(model_path):
-    return YOLO(model_path)
-
-# ======================================================
-# SIDEBAR
-# ======================================================
-st.sidebar.title("📌 Navigation Panel")
+st.sidebar.title("📌 Navigation")
 page = st.sidebar.radio("Select Module", [
     "Image Detection",
     "Video Detection",
@@ -62,11 +47,43 @@ page = st.sidebar.radio("Select Module", [
     "Model Comparison"
 ])
 
-model_path = st.sidebar.text_input("Model Path", "yolov8n.pt")
+st.sidebar.subheader("🤖 Model Selection")
+
+default_models = ["yolov8n.pt","yolov8s.pt","yolov8m.pt","yolov8l.pt","yolov8x.pt"]
+
+trained_models = []
+if os.path.exists(RUNS_DIR):
+    for root, dirs, files in os.walk(RUNS_DIR):
+        for f in files:
+            if f.endswith(".pt"):
+                trained_models.append(os.path.join(root, f))
+
+model_list = default_models + trained_models
+selected_model = st.sidebar.selectbox("Select Model", model_list)
+
+uploaded_model = st.sidebar.file_uploader("Or Upload Custom Model (.pt)", type=["pt"])
+
+if uploaded_model:
+    temp_model_path = "temp_uploaded_model.pt"
+    with open(temp_model_path, "wb") as f:
+        f.write(uploaded_model.read())
+    model_path = temp_model_path
+else:
+    model_path = selected_model
+
+@st.cache_resource
+def load_model(path):
+    return YOLO(path)
+
 model = load_model(model_path)
+st.sidebar.success(f"Loaded: {os.path.basename(model_path)}")
+
+# Detection Settings
+confidence = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.25)
+iou_thresh = st.sidebar.slider("IoU Threshold", 0.0, 1.0, 0.45)
 
 # ======================================================
-# IMAGE DETECTION FUNCTION
+# IMAGE DETECTION
 # ======================================================
 def image_detection():
     st.title("🖼 Image Detection")
@@ -75,7 +92,7 @@ def image_detection():
 
     if uploaded:
         image = Image.open(uploaded)
-        results = model(image)
+        results = model(image, conf=confidence, iou=iou_thresh)
 
         annotated = results[0].plot()
 
@@ -84,23 +101,16 @@ def image_detection():
 
         st.image(annotated, channels="BGR", use_column_width=True)
 
+        # Failure detection
+        if len(results[0].boxes) == 0:
+            fail_path = os.path.join(FAILURE_DIR, f"fail_{int(time.time())}.jpg")
+            cv2.imwrite(fail_path, annotated)
+
         with open(save_path, "rb") as f:
-            st.download_button("⬇ Download Output", f, file_name="detected_image.jpg")
-
-    # Dataset Compare
-    st.subheader("📂 Compare with Dataset")
-    dataset_images = os.listdir(DATASET_DIR)
-
-    if dataset_images:
-        selected = st.selectbox("Select Dataset Image", dataset_images)
-        if selected:
-            img = Image.open(os.path.join(DATASET_DIR, selected))
-            st.image(img, width=400)
-    else:
-        st.info("Dataset folder empty")
+            st.download_button("⬇ Download Output", f)
 
 # ======================================================
-# VIDEO DETECTION FUNCTION
+# VIDEO DETECTION
 # ======================================================
 def video_detection():
     st.title("🎥 Video Detection")
@@ -113,8 +123,8 @@ def video_detection():
 
         cap = cv2.VideoCapture(tfile.name)
 
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        width = int(cap.get(3))
+        height = int(cap.get(4))
         fps = int(cap.get(cv2.CAP_PROP_FPS))
 
         save_path = os.path.join(OUTPUT_DIR, f"video_{int(time.time())}.mp4")
@@ -127,21 +137,22 @@ def video_detection():
         progress = st.progress(0)
 
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        count = 0
+        frame_count = 0
 
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
                 break
 
-            results = model(frame)
+            results = model(frame, conf=confidence, iou=iou_thresh)
             annotated = results[0].plot()
 
             out.write(annotated)
             frame_display.image(annotated, channels="BGR")
 
-            count += 1
-            progress.progress(min(count/total_frames, 1.0))
+            frame_count += 1
+            if total_frames > 0:
+                progress.progress(min(frame_count/total_frames, 1.0))
 
         cap.release()
         out.release()
@@ -152,25 +163,34 @@ def video_detection():
             st.download_button("⬇ Download Processed Video", f)
 
 # ======================================================
-# WEBCAM FUNCTION
+# WEBCAM (STABLE VERSION)
 # ======================================================
 def webcam_detection():
     st.title("📷 Live Webcam Detection")
+
+    if "webcam_running" not in st.session_state:
+        st.session_state.webcam_running = False
 
     start = st.button("Start Webcam")
     stop = st.button("Stop Webcam")
 
     if start:
-        cap = cv2.VideoCapture(0)
-        frame_display = st.empty()
+        st.session_state.webcam_running = True
+    if stop:
+        st.session_state.webcam_running = False
 
-        while True:
+    frame_display = st.empty()
+
+    if st.session_state.webcam_running:
+        cap = cv2.VideoCapture(0)
+
+        while st.session_state.webcam_running:
             ret, frame = cap.read()
             if not ret:
                 st.error("Webcam not accessible")
                 break
 
-            results = model(frame)
+            results = model(frame, conf=confidence, iou=iou_thresh)
             annotated = results[0].plot()
 
             save_path = os.path.join(OUTPUT_DIR, f"webcam_{int(time.time())}.jpg")
@@ -178,40 +198,37 @@ def webcam_detection():
 
             frame_display.image(annotated, channels="BGR")
 
-            if stop:
-                break
-
         cap.release()
 
 # ======================================================
-# EVALUATION FUNCTION
+# EVALUATION
 # ======================================================
 def evaluation():
     st.title("📊 Model Evaluation")
 
-    results_csv = os.path.join(TRAIN_RUN, "results.csv")
+    run_folders = []
+    if os.path.exists(RUNS_DIR):
+        run_folders = os.listdir(RUNS_DIR)
+
+    selected_run = st.selectbox("Select Training Run", run_folders)
+
+    results_csv = os.path.join(RUNS_DIR, selected_run, "results.csv")
 
     if os.path.exists(results_csv):
         df = pd.read_csv(results_csv)
 
-        st.subheader("Loss Curve")
-        st.line_chart(df[['train/box_loss','val/box_loss']])
+        st.line_chart(df.filter(regex="loss"))
+        st.line_chart(df.filter(regex="mAP"))
+        st.line_chart(df.filter(regex="precision|recall"))
 
-        st.subheader("mAP Scores")
-        st.line_chart(df[['metrics/mAP50(B)','metrics/mAP50-95(B)']])
-
-        st.subheader("Precision & Recall")
-        st.line_chart(df[['metrics/precision(B)','metrics/recall(B)']])
-
-        cm_path = os.path.join(TRAIN_RUN, "confusion_matrix.png")
+        cm_path = os.path.join(RUNS_DIR, selected_run, "confusion_matrix.png")
         if os.path.exists(cm_path):
-            st.subheader("Confusion Matrix")
             st.image(cm_path)
     else:
-        st.warning("No training results found")
+        st.warning("No results found")
 
 # ======================================================
-# FAILURE CASES FUNCTION
+# FAILURE CASES
 # ======================================================
 def failure_cases():
     st.title("❌ Failure Cases")
@@ -222,55 +239,60 @@ def failure_cases():
         for img in failures:
             st.image(os.path.join(FAILURE_DIR, img), width=400)
     else:
-        st.info("No failure cases saved yet")
+        st.info("No failure cases saved")
 
 # ======================================================
-# MODEL COMPARISON FUNCTION
+# MODEL COMPARISON (AUTO FROM RUNS)
 # ======================================================
 def model_comparison():
-    st.title("📈 Advanced Model Comparison")
+    st.title("📈 Model Comparison Dashboard")
 
-    data = {
-        "Model":["YOLOv8n","YOLOv8s","YOLOv8m"],
-        "mAP50":[0.55,0.62,0.68],
-        "mAP50-95":[0.32,0.41,0.47],
-        "Recall":[0.60,0.65,0.72],
-        "Precision":[0.58,0.67,0.74]
-    }
+    comparison_data = []
 
-    df = pd.DataFrame(data)
+    if os.path.exists(RUNS_DIR):
+        for run in os.listdir(RUNS_DIR):
+            csv_path = os.path.join(RUNS_DIR, run, "results.csv")
+            if os.path.exists(csv_path):
+                df = pd.read_csv(csv_path)
+                last = df.iloc[-1]
 
-    st.dataframe(df)
+                comparison_data.append({
+                    "Run": run,
+                    "mAP50": last.filter(like="mAP50").values[0] if "mAP50" in str(last.index) else 0,
+                    "Precision": last.filter(like="precision").values[0] if "precision" in str(last.index) else 0,
+                    "Recall": last.filter(like="recall").values[0] if "recall" in str(last.index) else 0
+                })
 
-    st.plotly_chart(px.line(df, x="Model", y="mAP50"))
-    st.plotly_chart(px.area(df, x="Model", y="Recall"))
-    st.plotly_chart(px.bar(df, x="Model", y="Precision"))
-    st.plotly_chart(px.pie(df, names="Model", values="mAP50"))
-    st.plotly_chart(px.funnel(df, x="mAP50", y="Model"))
+    if comparison_data:
+        df = pd.DataFrame(comparison_data)
 
-    fig = go.Figure(go.Waterfall(x=df["Model"], y=df["mAP50"]))
-    st.plotly_chart(fig)
+        st.dataframe(df)
 
-    csv = df.to_csv(index=False)
-    st.download_button("⬇ Download Comparison Report", csv, file_name="comparison.csv")
+        st.plotly_chart(px.line(df, x="Run", y="mAP50"))
+        st.plotly_chart(px.area(df, x="Run", y="Recall"))
+        st.plotly_chart(px.bar(df, x="Run", y="Precision"))
+        st.plotly_chart(px.pie(df, names="Run", values="mAP50"))
+        st.plotly_chart(px.funnel(df, x="mAP50", y="Run"))
+
+        fig = go.Figure(go.Waterfall(x=df["Run"], y=df["mAP50"]))
+        st.plotly_chart(fig)
+
+        st.download_button("⬇ Download Comparison CSV", df.to_csv(index=False))
+    else:
+        st.warning("No training runs available")
 
 # ======================================================
 # ROUTER
 # ======================================================
 if page == "Image Detection":
     image_detection()
-
 elif page == "Video Detection":
     video_detection()
-
 elif page == "Live Webcam":
     webcam_detection()
-
 elif page == "Evaluation":
     evaluation()
-
 elif page == "Failure Cases":
     failure_cases()
-
 elif page == "Model Comparison":
     model_comparison()
