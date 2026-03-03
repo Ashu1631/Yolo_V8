@@ -1,251 +1,231 @@
 import streamlit as st
 import os
 import cv2
-import time
-import yaml
+import tempfile
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from ultralytics import YOLO
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
-import av
+from PIL import Image
+import time
+import shutil
 
-st.set_page_config(page_title="YOLOv8 Enterprise AI", layout="wide")
+# =========================
+# CONFIG
+# =========================
+st.set_page_config(page_title="YOLOv8 Detection System", layout="wide")
 
-# ==========================================================
-# LOAD USERS FROM YAML
-# ==========================================================
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
-if os.path.exists("users.yaml"):
-    with open("users.yaml") as f:
-        users_yaml = yaml.safe_load(f)
-        users = users_yaml.get("users", {})
-else:
-    users = {}
-
-# ==========================================================
-# LOGIN SYSTEM
-# ==========================================================
-if not st.session_state.logged_in:
-
-    st.title("🔐 Login Required")
-
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-
-        if username in users and users[username]["password"] == password:
-            st.session_state.logged_in = True
-            st.success("Login Successful ✅")
-            st.rerun()
-        else:
-            st.error("Invalid Credentials ❌")
-
-    st.stop()
-
-# ==========================================================
-# SESSION
-# ==========================================================
-if "page" not in st.session_state:
-    st.session_state.page = "Model Selection"
-
-if "model" not in st.session_state:
-    st.session_state.model = None
-
-# ==========================================================
-# NAVIGATION
-# ==========================================================
-st.sidebar.markdown("## 🚀 Navigation")
-
-pages = [
-    "Model Selection",
-    "Upload & Detect",
-    "Webcam Detection",
-    "Evaluation Dashboard",
-    "Failure Cases",
-    "Model Comparison"
-]
-
-for p in pages:
-    if st.session_state.page == p:
-        st.sidebar.markdown(
-            f"<div style='background:#28a745;padding:5px;border-radius:6px;color:white;margin-bottom:3px;'>👉 {p}</div>",
-            unsafe_allow_html=True
-        )
-    else:
-        if st.sidebar.button(p, key=p):
-            st.session_state.page = p
-            st.rerun()
-
-st.sidebar.markdown("""
+# Custom CSS for spacing
+st.markdown("""
 <style>
-div[data-testid="stButton"] button {
-    background:#dc3545;
-    color:white;
-    padding:5px;
-    border-radius:6px;
-    margin-bottom:3px;
+section[data-testid="stSidebar"] .css-ng1t4o {
+    padding-top: 20px;
+}
+.sidebar .sidebar-content {
+    padding-top: 30px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-page = st.session_state.page
+OUTPUT_DIR = "outputs"
+DATASET_DIR = "dataset"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# ==========================================================
-# MODEL SELECTION
-# ==========================================================
-if page == "Model Selection":
+# =========================
+# SIDEBAR
+# =========================
+st.sidebar.title("Navigation")
+page = st.sidebar.radio("Go to", [
+    "Image Detection",
+    "Video Detection",
+    "Webcam",
+    "Evaluation",
+    "Failure Cases",
+    "Model Comparison"
+])
 
-    st.title("📦 Model Selection")
+model_path = st.sidebar.text_input("Model Path", "yolov8n.pt")
+model = YOLO(model_path)
 
-    models = [f for f in os.listdir() if f.endswith(".pt")]
-    selected = st.selectbox("Select Model", ["-- Select --"] + models)
+# =========================
+# IMAGE DETECTION
+# =========================
+if page == "Image Detection":
+    st.title("Image Detection")
 
-    if selected != "-- Select --":
-        st.session_state.model = YOLO(selected)
-        st.success("Model Loaded Successfully ✅")
-        st.session_state.page = "Upload & Detect"
-        st.rerun()
+    uploaded_file = st.file_uploader("Upload Image", type=["jpg","png","jpeg"])
 
-# ==========================================================
-# UPLOAD & DATASET
-# ==========================================================
-if page == "Upload & Detect":
+    if uploaded_file:
+        image = Image.open(uploaded_file)
+        results = model(image)
 
-    if not st.session_state.model:
-        st.warning("Load model first.")
-        st.stop()
+        result_img = results[0].plot()
+        save_path = os.path.join(OUTPUT_DIR, f"img_{int(time.time())}.jpg")
+        cv2.imwrite(save_path, result_img)
 
-    model = st.session_state.model
-    tab1, tab2 = st.tabs(["📤 Upload", "📂 Dataset"])
+        st.image(result_img, caption="Detected Image", use_column_width=True)
 
-    # Upload
-    with tab1:
+        with open(save_path, "rb") as f:
+            st.download_button("Download Output", f, file_name="detected.jpg")
 
-        uploaded = st.file_uploader("Upload Image/Video",
-                                    type=["jpg","png","jpeg","mp4"])
+    # Dataset compare option
+    st.subheader("Compare with Dataset Image")
+    dataset_images = os.listdir(DATASET_DIR) if os.path.exists(DATASET_DIR) else []
+    selected = st.selectbox("Select Dataset Image", dataset_images)
 
-        if uploaded:
+    if selected:
+        dataset_img = Image.open(os.path.join(DATASET_DIR, selected))
+        st.image(dataset_img, caption="Dataset Image", width=300)
 
-            compare = st.checkbox("Enable Comparison (best.pt vs yolov8n.pt)")
+# =========================
+# VIDEO DETECTION
+# =========================
+elif page == "Video Detection":
+    st.title("Video Detection")
 
-            temp_path = uploaded.name
-            with open(temp_path, "wb") as f:
-                f.write(uploaded.read())
+    video_file = st.file_uploader("Upload Video", type=["mp4","avi","mov"])
 
-            if temp_path.endswith(("jpg","png","jpeg")):
+    if video_file:
+        tfile = tempfile.NamedTemporaryFile(delete=False)
+        tfile.write(video_file.read())
 
-                img = cv2.imread(temp_path)
-                start = time.time()
+        cap = cv2.VideoCapture(tfile.name)
+        width = int(cap.get(3))
+        height = int(cap.get(4))
+        fps = int(cap.get(cv2.CAP_PROP_FPS))
 
-                if compare:
-                    col1, col2 = st.columns(2)
+        save_path = os.path.join(OUTPUT_DIR, f"video_{int(time.time())}.mp4")
+        out = cv2.VideoWriter(save_path,
+                              cv2.VideoWriter_fourcc(*'mp4v'),
+                              fps, (width, height))
 
-                    r1 = YOLO("best.pt")(img)
-                    r2 = YOLO("yolov8n.pt")(img)
+        frame_placeholder = st.empty()
 
-                    fps = 1 / (time.time() - start)
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-                    col1.markdown(f"### 🟢 best.pt | FPS: {fps:.2f}")
-                    col1.image(cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB))
+            results = model(frame)
+            annotated_frame = results[0].plot()
 
-                    col2.markdown(f"### 🔵 yolov8n.pt | FPS: {fps:.2f}")
-                    col2.image(cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB))
-                else:
-                    r = model(img)
-                    fps = 1 / (time.time() - start)
-                    annotated = r[0].plot()
-                    cv2.putText(annotated, f"FPS: {fps:.2f}",
-                                (20,40),
-                                cv2.FONT_HERSHEY_SIMPLEX,
-                                1,(0,255,0),2)
-                    st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
+            out.write(annotated_frame)
+            frame_placeholder.image(annotated_frame, channels="BGR")
 
-    # Dataset
-    with tab2:
+        cap.release()
+        out.release()
 
-        dataset_path = "datasets"
+        st.success("Video Processed Successfully")
 
-        if os.path.exists(dataset_path):
-            images = [f for f in os.listdir(dataset_path)
-                      if f.endswith(("jpg","png","jpeg"))]
+        with open(save_path, "rb") as f:
+            st.download_button("Download Processed Video", f)
 
-            selected_img = st.selectbox("Select Dataset Image",
-                                        ["-- Select --"] + images)
+# =========================
+# WEBCAM
+# =========================
+elif page == "Webcam":
+    st.title("Live Webcam Detection")
 
-            if selected_img != "-- Select --":
-                img = cv2.imread(os.path.join(dataset_path, selected_img))
-                r = model(img)
-                st.image(cv2.cvtColor(r[0].plot(), cv2.COLOR_BGR2RGB))
+    run = st.checkbox("Start Webcam")
 
-# ==========================================================
-# WEBCAM LIVE DETECTION
-# ==========================================================
-if page == "Webcam Detection":
+    if run:
+        cap = cv2.VideoCapture(0)
+        frame_placeholder = st.empty()
 
-    if not st.session_state.model:
-        st.warning("Load model first.")
-        st.stop()
+        while run:
+            ret, frame = cap.read()
+            if not ret:
+                st.error("Webcam not accessible")
+                break
 
-    model = st.session_state.model
+            results = model(frame)
+            annotated_frame = results[0].plot()
 
-    RTC_CONFIGURATION = RTCConfiguration(
-        {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
-    )
+            save_path = os.path.join(OUTPUT_DIR, f"webcam_{int(time.time())}.jpg")
+            cv2.imwrite(save_path, annotated_frame)
 
-    class VideoProcessor(VideoProcessorBase):
-        def __init__(self):
-            self.model = model
+            frame_placeholder.image(annotated_frame, channels="BGR")
 
-        def recv(self, frame):
-            img = frame.to_ndarray(format="bgr24")
+        cap.release()
 
-            start = time.time()
-            results = self.model(img)
-            annotated = results[0].plot()
-            fps = 1 / (time.time() - start)
-
-            cv2.putText(annotated,
-                        f"FPS: {fps:.2f}",
-                        (20, 40),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1, (0,255,0), 2)
-
-            return av.VideoFrame.from_ndarray(
-                annotated,
-                format="bgr24"
-            )
-
-    webrtc_streamer(
-        key="webcam_stream",
-        video_processor_factory=VideoProcessor,
-        rtc_configuration=RTC_CONFIGURATION,
-        media_stream_constraints={"video": True, "audio": False},
-        async_processing=True
-    )
-
-# ==========================================================
+# =========================
 # EVALUATION
-# ==========================================================
-if page == "Evaluation Dashboard":
+# =========================
+elif page == "Evaluation":
+    st.title("Model Evaluation")
 
-    st.title("📊 Evaluation Dashboard")
+    results_csv = "runs/detect/train/results.csv"
 
-    csv_path = "analysis/results.csv"
+    if os.path.exists(results_csv):
+        df = pd.read_csv(results_csv)
 
-    if os.path.exists(csv_path):
-        df = pd.read_csv(csv_path)
-        latest = df.iloc[-1]
+        st.line_chart(df[['train/box_loss','val/box_loss']])
+        st.line_chart(df[['metrics/mAP50(B)','metrics/mAP50-95(B)']])
+        st.line_chart(df[['metrics/precision(B)','metrics/recall(B)']])
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("mAP50", f"{latest['metrics/mAP50(B)']*100:.2f}%")
-        col2.metric("Precision", f"{latest['metrics/precision(B)']*100:.2f}%")
-        col3.metric("Recall", f"{latest['metrics/recall(B)']*100:.2f}%")
+        # Confusion matrix (if exists)
+        cm_path = "runs/detect/train/confusion_matrix.png"
+        if os.path.exists(cm_path):
+            st.image(cm_path, caption="Confusion Matrix")
+    else:
+        st.warning("Train model first")
 
-        st.subheader("Loss Curve")
-        st.area_chart(df[['train/box_loss',
-                          'train/cls_loss',
-                          'train/dfl_loss']])
+# =========================
+# FAILURE CASES
+# =========================
+elif page == "Failure Cases":
+    st.title("Failure Cases")
+
+    failure_dir = os.path.join(OUTPUT_DIR, "failures")
+    os.makedirs(failure_dir, exist_ok=True)
+
+    failures = os.listdir(failure_dir)
+    if failures:
+        for f in failures:
+            st.image(os.path.join(failure_dir, f), width=300)
+    else:
+        st.info("No failure cases found")
+
+# =========================
+# MODEL COMPARISON
+# =========================
+elif page == "Model Comparison":
+    st.title("Model Comparison Dashboard")
+
+    sample_data = {
+        "Model":["YOLOv8n","YOLOv8s","YOLOv8m"],
+        "mAP50":[0.55,0.62,0.68],
+        "mAP50-95":[0.32,0.41,0.47],
+        "Recall":[0.60,0.65,0.72],
+        "Precision":[0.58,0.67,0.74]
+    }
+
+    df = pd.DataFrame(sample_data)
+
+    st.subheader("Comparison Table")
+    st.dataframe(df)
+
+    fig_line = px.line(df, x="Model", y="mAP50")
+    st.plotly_chart(fig_line)
+
+    fig_area = px.area(df, x="Model", y="Recall")
+    st.plotly_chart(fig_area)
+
+    fig_bar = px.bar(df, x="Model", y="Precision")
+    st.plotly_chart(fig_bar)
+
+    fig_pie = px.pie(df, names="Model", values="mAP50")
+    st.plotly_chart(fig_pie)
+
+    fig_funnel = px.funnel(df, x="mAP50", y="Model")
+    st.plotly_chart(fig_funnel)
+
+    fig_waterfall = go.Figure(go.Waterfall(
+        x=df["Model"],
+        y=df["mAP50"],
+    ))
+    st.plotly_chart(fig_waterfall)
+
+    csv = df.to_csv(index=False)
+    st.download_button("Download Report", csv, file_name="model_comparison.csv")
