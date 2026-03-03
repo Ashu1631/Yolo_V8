@@ -2,7 +2,6 @@ import streamlit as st
 import os
 import cv2
 import time
-import yaml
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -23,7 +22,7 @@ if "model" not in st.session_state:
     st.session_state.model = None
 
 # ==========================================================
-# NAVIGATION
+# NAVIGATION (Green Selected / Red Unselected / Compact Gap)
 # ==========================================================
 st.sidebar.markdown("## 🚀 Navigation")
 
@@ -40,9 +39,13 @@ for p in pages:
     if st.session_state.page == p:
         st.sidebar.markdown(
             f"""
-            <div style="background:#28a745;padding:6px;border-radius:6px;
-            color:white;font-weight:600;margin-bottom:4px;">
-            👉 {p}
+            <div style="background:#28a745;
+                        padding:6px;
+                        border-radius:6px;
+                        color:white;
+                        font-weight:600;
+                        margin-bottom:3px;">
+                👉 {p}
             </div>
             """,
             unsafe_allow_html=True
@@ -51,6 +54,18 @@ for p in pages:
         if st.sidebar.button(p, key=f"nav_{p}"):
             st.session_state.page = p
             st.rerun()
+
+st.sidebar.markdown("""
+<style>
+div[data-testid="stButton"] button {
+    background:#dc3545;
+    color:white;
+    padding:6px;
+    border-radius:6px;
+    margin-bottom:3px;
+}
+</style>
+""", unsafe_allow_html=True)
 
 page = st.session_state.page
 
@@ -97,9 +112,7 @@ if page == "Upload & Detect":
     model = st.session_state.model
     tab1, tab2 = st.tabs(["📤 Upload", "📂 Dataset"])
 
-    # ==============================
-    # UPLOAD
-    # ==============================
+    # ===================== UPLOAD =====================
     with tab1:
 
         uploaded = st.file_uploader("Upload Image/Video",
@@ -121,12 +134,14 @@ if page == "Upload & Detect":
                 img = cv2.imread(temp_path)
 
                 if compare_upload:
-                    m1 = YOLO("best.pt")
-                    m2 = YOLO("yolov8n.pt")
-                    r1 = m1(img)
-                    r2 = m2(img)
                     col1, col2 = st.columns(2)
+
+                    col1.markdown("### 🟢 best.pt")
+                    r1 = YOLO("best.pt")(img)
                     col1.image(cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB))
+
+                    col2.markdown("### 🔵 yolov8n.pt")
+                    r2 = YOLO("yolov8n.pt")(img)
                     col2.image(cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB))
                 else:
                     results = model(img)
@@ -191,12 +206,10 @@ if page == "Upload & Detect":
                                        data=file,
                                        file_name="processed_video.mp4")
 
-                st.subheader("FPS Graph")
+                st.subheader("📈 FPS Graph")
                 st.line_chart(pd.DataFrame({"FPS":fps_list}))
 
-    # ==============================
-    # DATASET
-    # ==============================
+    # ===================== DATASET =====================
     with tab2:
 
         dataset_path = "datasets"
@@ -219,19 +232,21 @@ if page == "Upload & Detect":
                 img = cv2.imread(img_path)
 
                 if compare_dataset:
-                    m1 = YOLO("best.pt")
-                    m2 = YOLO("yolov8n.pt")
-                    r1 = m1(img)
-                    r2 = m2(img)
                     col1,col2 = st.columns(2)
+
+                    col1.markdown("### 🟢 best.pt")
+                    r1 = YOLO("best.pt")(img)
                     col1.image(cv2.cvtColor(r1[0].plot(),cv2.COLOR_BGR2RGB))
+
+                    col2.markdown("### 🔵 yolov8n.pt")
+                    r2 = YOLO("yolov8n.pt")(img)
                     col2.image(cv2.cvtColor(r2[0].plot(),cv2.COLOR_BGR2RGB))
                 else:
                     results = model(img)
                     st.image(cv2.cvtColor(results[0].plot(),cv2.COLOR_BGR2RGB))
 
 # ==========================================================
-# WEBCAM
+# WEBCAM (Improved Stability)
 # ==========================================================
 if page == "Webcam Detection":
 
@@ -246,20 +261,14 @@ if page == "Webcam Detection":
     model = st.session_state.model
 
     class Processor(VideoProcessorBase):
-        def recv(self,frame):
+        def recv(self, frame):
             img = frame.to_ndarray(format="bgr24")
-            start=time.time()
             results = model(img)
             annotated = results[0].plot()
-            fps=1/(time.time()-start)
-            cv2.putText(annotated,f"FPS:{fps:.2f}",
-                        (20,40),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1,(0,255,0),2)
-            return av.VideoFrame.from_ndarray(annotated,format="bgr24")
+            return av.VideoFrame.from_ndarray(annotated, format="bgr24")
 
     webrtc_streamer(
-        key="webcam",
+        key="webcam_stream",
         video_processor_factory=Processor,
         rtc_configuration=RTC_CONFIGURATION,
         media_stream_constraints={"video":True,"audio":False},
@@ -280,22 +289,24 @@ if page == "Evaluation Dashboard":
         df=pd.read_csv(csv_path)
         latest=df.iloc[-1]
 
-        st.metric("mAP50",f"{latest['metrics/mAP50(B)']*100:.2f}%")
-        st.metric("Precision",f"{latest['metrics/precision(B)']*100:.2f}%")
-        st.metric("Recall",f"{latest['metrics/recall(B)']*100:.2f}%")
+        col1,col2,col3,col4 = st.columns(4)
 
-        st.subheader("Loss Curve")
+        col1.metric("📊 mAP50",f"{latest['metrics/mAP50(B)']*100:.2f}%")
+        col2.metric("📊 mAP50-95",f"{latest['metrics/mAP50-95(B)']*100:.2f}%")
+        col3.metric("🎯 Precision",f"{latest['metrics/precision(B)']*100:.2f}%")
+        col4.metric("🔁 Recall",f"{latest['metrics/recall(B)']*100:.2f}%")
+
+        st.subheader("📉 Loss Curve")
         st.line_chart(df[['train/box_loss',
                           'train/cls_loss',
                           'train/dfl_loss']])
 
-        st.subheader("Interactive Confusion Matrix")
+        st.subheader("📈 Recall Curve")
+        st.line_chart(df[['metrics/recall(B)']])
 
         if os.path.exists("analysis/confusion_matrix.png"):
-            cm_img=cv2.imread("analysis/confusion_matrix.png")
-            heatmap=px.imshow(cm_img.mean(axis=2),
-                              color_continuous_scale='viridis')
-            st.plotly_chart(heatmap)
+            st.subheader("🔥 Confusion Matrix")
+            st.image("analysis/confusion_matrix.png")
 
 # ==========================================================
 # FAILURE CASES
@@ -313,11 +324,11 @@ if page=="Failure Cases":
             st.info("No failure cases found.")
 
 # ==========================================================
-# MODEL COMPARISON
+# MODEL COMPARISON (All Graphs)
 # ==========================================================
 if page=="Model Comparison":
 
-    st.title("🚀 Real Multi-Model Benchmark")
+    st.title("🚀 Model Comparison")
 
     if os.path.exists("analysis/results.csv"):
 
@@ -330,25 +341,28 @@ if page=="Model Comparison":
             "Recall":latest['metrics/recall(B)']
         }
 
-        comp_df=pd.DataFrame({
-            "Metric":list(metrics.keys()),
-            "best.pt":list(metrics.values()),
-            "yolov8n.pt":np.random.uniform(0.5,0.9,len(metrics))
-        })
+        labels=list(metrics.keys())
+        values=list(metrics.values())
 
-        st.dataframe(comp_df)
+        st.subheader("📈 Line Chart")
+        st.line_chart(pd.DataFrame(metrics,index=[0]))
 
-        fig=go.Figure()
-        fig.add_trace(go.Bar(x=comp_df["Metric"],
-                             y=comp_df["best.pt"],
-                             name="best.pt"))
-        fig.add_trace(go.Bar(x=comp_df["Metric"],
-                             y=comp_df["yolov8n.pt"],
-                             name="yolov8n.pt"))
+        st.subheader("📊 Bar Chart")
+        st.plotly_chart(px.bar(x=labels,y=values))
+
+        st.subheader("🥧 Pie Chart")
+        st.plotly_chart(px.pie(names=labels,values=values))
+
+        st.subheader("📊 Histogram")
+        st.plotly_chart(px.histogram(df,x='metrics/mAP50(B)'))
+
+        st.subheader("💧 Waterfall Chart")
+        fig = go.Figure(go.Waterfall(
+            x=labels,
+            y=values,
+            measure=["relative","relative","relative"]
+        ))
         st.plotly_chart(fig)
 
-        st.subheader("Heatmap")
-        st.plotly_chart(px.imshow(df.corr(),text_auto=True))
-
-        st.subheader("Histogram")
-        st.plotly_chart(px.histogram(df,x='metrics/mAP50(B)'))
+        st.subheader("🔻 Funnel Chart")
+        st.plotly_chart(px.funnel(x=values,y=labels))
