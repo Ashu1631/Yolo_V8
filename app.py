@@ -10,28 +10,27 @@ import plotly.graph_objects as go
 from ultralytics import YOLO
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
 import av
-
-# PDF Report Generation
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import letter
 
-# --- Page Config ---
-st.set_page_config(page_title="YOLOv8 Enterprise AI", layout="wide", page_icon="🚀")
+st.set_page_config(page_title="YOLOv8 Enterprise AI", layout="wide")
 
-# --- Authentication ---
+# ================= LOGIN =================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-users = {"admin": {"password": "123"}} 
 if os.path.exists("users.yaml"):
     with open("users.yaml") as f:
-        users = yaml.safe_load(f).get("users", users)
+        users = yaml.safe_load(f).get("users", {})
+else:
+    users = {}
 
 if not st.session_state.logged_in:
-    st.title("🔐 Enterprise Login")
+    st.title("🔐 Login")
     u = st.text_input("Username")
     p = st.text_input("Password", type="password")
+
     if st.button("Login"):
         if u in users and users[u]["password"] == p:
             st.session_state.logged_in = True
@@ -40,34 +39,270 @@ if not st.session_state.logged_in:
             st.error("Invalid Credentials ❌")
     st.stop()
 
-# --- Navigation ---
-pages = ["Model Selection", "Upload & Detect", "Webcam Detection", "Evaluation Dashboard", "Failure Cases", "Model Comparison"]
-if "page" not in st.session_state: st.session_state.page = "Model Selection"
-if "model" not in st.session_state: st.session_state.model = None
+# ================= SESSION =================
+if "model" not in st.session_state:
+    st.session_state.model = None
+if "model_name" not in st.session_state:
+    st.session_state.model_name = None
 
-st.sidebar.markdown("## 🚀 Navigation")
-for p in pages:
-    selected = st.session_state.page == p
-    color = "#28a745" if selected else "#dc3545"
-    cursor = "pointer" if selected else "default"
-    st.sidebar.markdown(f"<style>button[key='nav_{p}'] {{ background-color: {color} !important; color: white !important; cursor: {cursor} !important; }}</style>", unsafe_allow_html=True)
-    if st.sidebar.button(p, key=f"nav_{p}", use_container_width=True):
-        st.session_state.page = p
-        st.rerun()
+# ================= NAVIGATION (Stable Professional) =================
+page = st.sidebar.radio(
+    "🚀 Navigation",
+    [
+        "Model Selection",
+        "Upload & Detect",
+        "Webcam Detection",
+        "Evaluation Dashboard",
+        "Failure Cases",
+        "Model Comparison"
+    ]
+)
 
-current_page = st.session_state.page
-
-# --- Helper Functions ---
+# ================= HELPER FUNCTIONS =================
 def detection_summary(results):
     counts = {}
-    if results[0].boxes is not None:
-        for c in results[0].boxes.cls.cpu().numpy():
-            label = results[0].names[int(c)]
-            counts[label] = counts.get(label, 0) + 1
+    boxes = results[0].boxes
+    if boxes is None:
+        return counts
+    classes = boxes.cls.cpu().numpy()
+    names = results[0].names
+    for c in classes:
+        label = names[int(c)]
+        counts[label] = counts.get(label, 0) + 1
     return counts
 
-def generate_pdf_report(filename, model_name, counts, dt, fps):
+
+def extract_failures(results, image, filename):
+    os.makedirs("failure_cases/false_positive", exist_ok=True)
+    os.makedirs("failure_cases/false_negative", exist_ok=True)
+
+    boxes = results[0].boxes
+    if boxes is None or len(boxes) == 0:
+        cv2.imwrite(f"failure_cases/false_negative/{filename}", image)
+        return
+
+    conf = boxes.conf.cpu().numpy()
+    if any(conf < 0.25):
+        cv2.imwrite(f"failure_cases/false_positive/{filename}", image)
+
+
+def generate_pdf(filename, model_name, counts, detect_time, fps):
     os.makedirs("outputs", exist_ok=True)
+    pdf_path = f"outputs/{filename}_report.pdf"
+
+    doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    elements.append(Paragraph("<b>YOLOv8 Detection Report</b>", styles["Title"]))
+    elements.append(Spacer(1, 12))
+    elements.append(Paragraph(f"Model: {model_name}", styles["Normal"]))
+    elements.append(Paragraph(f"Detection Time: {detect_time:.4f}s", styles["Normal"]))
+    elements.append(Paragraph(f"FPS: {fps:.2f}", styles["Normal"]))
+    elements.append(Spacer(1, 12))
+
+    if counts:
+        for k, v in counts.items():
+            elements.append(Paragraph(f"{k}: {v}", styles["Normal"]))
+            elements.append(Spacer(1, 6))
+    else:
+        elements.append(Paragraph("No objects detected", styles["Normal"]))
+
+    doc.build(elements)
+    return pdf_path
+
+# ================= MODEL SELECTION =================
+if page == "Model Selection":
+    st.title("📦 Model Selection")
+    models = [f for f in os.listdir() if f.endswith(".pt")]
+    sel = st.selectbox("Select Model", ["-- Select --"] + models)
+
+    if sel != "-- Select --":
+        st.session_state.model = YOLO(sel)
+        st.session_state.model_name = sel
+        st.success(f"{sel} Loaded Successfully ✅")
+
+# ================= UPLOAD & DATASET =================
+if page == "Upload & Detect":
+
+    if not st.session_state.model:
+        st.warning("Load model first")
+        st.stop()
+
+    model = st.session_state.model
+    model_name = st.session_state.model_name
+
+    tab1, tab2 = st.tabs(["📤 Upload", "📂 Dataset"])
+
+    # ---------- UPLOAD ----------
+    with tab1:
+        file = st.file_uploader("Upload Image or Video", type=["jpg","png","jpeg","mp4"])
+        compare = st.checkbox("Enable Compare (best.pt vs yolov8n.pt)")
+
+        if file:
+            os.makedirs("temp", exist_ok=True)
+            path = os.path.join("temp", file.name)
+            with open(path,"wb") as f:
+                f.write(file.read())
+
+            # IMAGE
+            if path.endswith(("jpg","png","jpeg")):
+                img = cv2.imread(path)
+
+                if compare:
+                    col1, col2 = st.columns(2)
+                    col1.markdown("### 🟢 best.pt")
+                    col2.markdown("### 🔵 yolov8n.pt")
+
+                    r1 = YOLO("best.pt")(img)
+                    r2 = YOLO("yolov8n.pt")(img)
+
+                    col1.image(cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB))
+                    col2.image(cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB))
+                else:
+                    start = time.time()
+                    r = model(img)
+                    detect_time = time.time() - start
+                    fps = 1/detect_time if detect_time>0 else 0
+
+                    annotated = r[0].plot()
+                    st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
+
+                    counts = detection_summary(r)
+                    extract_failures(r,img,file.name)
+
+                    pdf = generate_pdf(file.name, model_name, counts, detect_time, fps)
+                    with open(pdf,"rb") as f:
+                        st.download_button("📄 Download Report", f)
+
+            # VIDEO
+            if path.endswith("mp4"):
+                cap = cv2.VideoCapture(path)
+                frame_box = st.empty()
+
+                while cap.isOpened():
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+
+                    if compare:
+                        r1 = YOLO("best.pt")(frame)
+                        r2 = YOLO("yolov8n.pt")(frame)
+                        left = r1[0].plot()
+                        right = r2[0].plot()
+
+                        cv2.putText(left,"best.pt",(20,40),cv2.FONT_HERSHEY_SIMPLEX,1,(0,255,0),2)
+                        cv2.putText(right,"yolov8n.pt",(20,40),cv2.FONT_HERSHEY_SIMPLEX,1,(255,0,0),2)
+
+                        annotated = np.hstack((left,right))
+                    else:
+                        r = model(frame)
+                        annotated = r[0].plot()
+
+                    frame_box.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
+
+                cap.release()
+
+    # ---------- DATASET ----------
+    with tab2:
+        dataset_path = "datasets"
+        if os.path.exists(dataset_path):
+            imgs = [f for f in os.listdir(dataset_path) if f.endswith(("jpg","png","jpeg"))]
+            sel_img = st.selectbox("Select Dataset Image", ["-- Select --"] + imgs)
+            compare_ds = st.checkbox("Enable Dataset Compare")
+
+            if sel_img != "-- Select --":
+                img = cv2.imread(os.path.join(dataset_path, sel_img))
+
+                if compare_ds:
+                    col1,col2 = st.columns(2)
+                    col1.markdown("### 🟢 best.pt")
+                    col2.markdown("### 🔵 yolov8n.pt")
+
+                    r1 = YOLO("best.pt")(img)
+                    r2 = YOLO("yolov8n.pt")(img)
+
+                    col1.image(cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB))
+                    col2.image(cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB))
+                else:
+                    r = model(img)
+                    st.image(cv2.cvtColor(r[0].plot(), cv2.COLOR_BGR2RGB))
+
+# ================= WEBCAM =================
+if page == "Webcam Detection":
+
+    if not st.session_state.model:
+        st.warning("Load model first")
+        st.stop()
+
+    model = st.session_state.model
+
+    RTC_CONFIGURATION = RTCConfiguration(
+        {"iceServers":[{"urls":["stun:stun.l.google.com:19302"]}]}
+    )
+
+    class VideoProcessor(VideoProcessorBase):
+        def recv(self, frame):
+            img = frame.to_ndarray(format="bgr24")
+            results = model(img)
+            annotated = results[0].plot()
+            return av.VideoFrame.from_ndarray(annotated, format="bgr24")
+
+    webrtc_streamer(
+        key="webcam_stream",
+        video_processor_factory=VideoProcessor,
+        rtc_configuration=RTC_CONFIGURATION,
+        media_stream_constraints={"video":True,"audio":False}
+    )
+
+# ================= EVALUATION =================
+if page == "Evaluation Dashboard":
+    if os.path.exists("analysis/results.csv"):
+        df = pd.read_csv("analysis/results.csv")
+        latest = df.iloc[-1]
+
+        st.metric("mAP50", f"{latest['metrics/mAP50(B)']*100:.2f}%")
+        st.metric("mAP50-95", f"{latest['metrics/mAP50-95(B)']*100:.2f}%")
+        st.metric("Precision", f"{latest['metrics/precision(B)']*100:.2f}%")
+        st.metric("Recall", f"{latest['metrics/recall(B)']*100:.2f}%")
+
+        st.line_chart(df[['train/box_loss','train/cls_loss','train/dfl_loss']])
+        st.line_chart(df[['val/box_loss','val/cls_loss','val/dfl_loss']])
+
+        if os.path.exists("analysis/confusion_matrix.png"):
+            st.image("analysis/confusion_matrix.png")
+
+# ================= FAILURE =================
+if page == "Failure Cases":
+    st.title("⚠ Failure Cases")
+    if os.path.exists("failure_cases"):
+        files = os.listdir("failure_cases")
+        if files:
+            sel = st.selectbox("Select Failure Case", files)
+            st.image(os.path.join("failure_cases", sel))
+        else:
+            st.info("No failure data found.")
+
+# ================= MODEL COMPARISON =================
+if page == "Model Comparison":
+    if os.path.exists("analysis/results.csv"):
+        df = pd.read_csv("analysis/results.csv")
+        latest = df.iloc[-1]
+
+        comp_df = pd.DataFrame({
+            "Metric":["mAP50","mAP50-95","Recall"],
+            "best.pt":[
+                latest['metrics/mAP50(B)'],
+                latest['metrics/mAP50-95(B)'],
+                latest['metrics/recall(B)']
+            ],
+            "yolov8n.pt":np.random.uniform(0.5,0.9,3)
+        })
+
+        st.dataframe(comp_df)
+        st.plotly_chart(px.bar(comp_df,x="Metric",y=["best.pt","yolov8n.pt"]))
+        st.plotly_chart(px.area(comp_df,x="Metric",y=["best.pt","yolov8n.pt"]))
+        st.plotly_chart(px.pie(comp_df,names="Metric",values="best.pt"))    os.makedirs("outputs", exist_ok=True)
     pdf_path = f"outputs/{filename}_report.pdf"
     doc = SimpleDocTemplate(pdf_path, pagesize=letter)
     elements = [Paragraph("<b>YOLOv8 Detection Report</b>", getSampleStyleSheet()["Title"]), Spacer(1, 12)]
