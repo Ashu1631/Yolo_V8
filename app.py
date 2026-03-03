@@ -7,9 +7,9 @@ import tempfile
 import cv2
 import hashlib
 import numpy as np
+import time
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
 import av
-import time
 
 # ==================================================
 # PAGE CONFIG
@@ -28,6 +28,9 @@ if "logged_in" not in st.session_state:
 
 if "model_object" not in st.session_state:
     st.session_state.model_object = None
+
+if "selected_model" not in st.session_state:
+    st.session_state.selected_model = None
 
 if "page" not in st.session_state:
     st.session_state.page = "Model Selection"
@@ -67,7 +70,7 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ==================================================
-# SIDEBAR NAVIGATION (FIXED VERSION)
+# SIDEBAR NAVIGATION (LOCKED STATE)
 # ==================================================
 pages = ["Model Selection", "Upload & Detect",
          "Webcam Detection", "Evaluation Dashboard"]
@@ -78,14 +81,13 @@ selected_page = st.sidebar.radio(
     index=pages.index(st.session_state.page)
 )
 
-# Only update if user manually changes
 if selected_page != st.session_state.page:
     st.session_state.page = selected_page
 
 page = st.session_state.page
 
 # ==================================================
-# MODEL SELECTION (FIXED FOR best.pt)
+# MODEL SELECTION (AUTO LOAD)
 # ==================================================
 if page == "Model Selection":
 
@@ -97,20 +99,24 @@ if page == "Model Selection":
         st.error("No .pt model files found.")
         st.stop()
 
-    selected_model = st.selectbox("Select Model", model_files)
+    selected_model = st.selectbox(
+        "Please select the model",
+        ["-- Select Model --"] + model_files,
+        key="model_dropdown"
+    )
 
-    if st.button("Load Model"):
+    if selected_model != "-- Select Model --":
 
-        with st.spinner(f"Loading {selected_model}..."):
-            model_path = os.path.abspath(selected_model)
+        if st.session_state.selected_model != selected_model:
 
-            # Force clean load
-            st.session_state.model_object = None
-            st.session_state.model_object = YOLO(model_path)
+            with st.spinner(f"Loading {selected_model}..."):
+                model_path = os.path.abspath(selected_model)
+                st.session_state.model_object = YOLO(model_path)
+                st.session_state.selected_model = selected_model
 
-        st.success(f"{selected_model} loaded successfully!")
-        st.session_state.page = "Upload & Detect"
-        st.rerun()
+            st.success(f"{selected_model} loaded successfully!")
+            st.session_state.page = "Upload & Detect"
+            st.rerun()
 
 # ==================================================
 # UPLOAD & DETECT
@@ -149,7 +155,7 @@ if page == "Upload & Detect":
             st.image(img)
             st.success(f"Detection Time: {round(end-start,2)} sec")
 
-        # VIDEO (Optimized Stream)
+        # VIDEO
         if uploaded_file.name.lower().endswith("mp4"):
 
             cap = cv2.VideoCapture(temp_path)
@@ -203,16 +209,34 @@ if page == "Upload & Detect":
             st.info("No images found in datasets folder.")
 
 # ==================================================
-# WEBCAM LIVE (STREAMLIT CLOUD COMPATIBLE)
+# WEBCAM LIVE (FIXED + FPS)
 # ==================================================
 class YOLOVideoProcessor(VideoProcessorBase):
-    def __init__(self):
-        self.model = st.session_state.model_object
+    def __init__(self, model):
+        self.model = model
+        self.prev_time = time.time()
 
     def recv(self, frame):
         img = frame.to_ndarray(format="bgr24")
+
         results = self.model(img, conf=0.25, iou=0.45)
         annotated = results[0].plot()
+
+        # FPS
+        current_time = time.time()
+        fps = 1 / (current_time - self.prev_time)
+        self.prev_time = current_time
+
+        cv2.putText(
+            annotated,
+            f"FPS: {int(fps)}",
+            (20, 40),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 255, 0),
+            2
+        )
+
         return av.VideoFrame.from_ndarray(
             annotated, format="bgr24")
 
@@ -225,10 +249,12 @@ if page == "Webcam Detection":
         st.warning("Load model first.")
         st.stop()
 
+    model = st.session_state.model_object
+
     webrtc_streamer(
         key="yolo-live",
-        video_processor_factory=YOLOVideoProcessor,
-        media_stream_constraints={"video": True, "audio": False}
+        video_processor_factory=lambda: YOLOVideoProcessor(model),
+        media_stream_constraints={"video": True, "audio": False},
     )
 
 # ==================================================
