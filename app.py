@@ -7,44 +7,48 @@ import tempfile
 import cv2
 import hashlib
 import numpy as np
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
+import av
 import time
 
-# --------------------------------------------------
+# ==================================================
 # PAGE CONFIG
-# --------------------------------------------------
+# ==================================================
 st.set_page_config(
     page_title="YOLOv8 Enterprise Dashboard",
     page_icon="🚀",
     layout="wide"
 )
 
-# --------------------------------------------------
+# ==================================================
 # SESSION INIT
-# --------------------------------------------------
+# ==================================================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
+
 if "model_object" not in st.session_state:
     st.session_state.model_object = None
+
 if "page" not in st.session_state:
     st.session_state.page = "Model Selection"
 
-# --------------------------------------------------
+# ==================================================
 # PASSWORD HASH
-# --------------------------------------------------
+# ==================================================
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
-# --------------------------------------------------
+# ==================================================
 # LOAD USERS
-# --------------------------------------------------
+# ==================================================
 with open("users.yaml") as file:
     users_yaml = yaml.safe_load(file)
     users = {k.strip(): v['password'].strip()
              for k, v in users_yaml['users'].items()}
 
-# --------------------------------------------------
+# ==================================================
 # LOGIN
-# --------------------------------------------------
+# ==================================================
 def login():
     st.title("🔐 Login Required")
     username = st.text_input("Username")
@@ -62,29 +66,26 @@ if not st.session_state.logged_in:
     login()
     st.stop()
 
-# --------------------------------------------------
-# SIDEBAR
-# --------------------------------------------------
+# ==================================================
+# SIDEBAR NAVIGATION (FIXED VERSION)
+# ==================================================
 pages = ["Model Selection", "Upload & Detect",
          "Webcam Detection", "Evaluation Dashboard"]
 
-st.session_state.page = st.sidebar.radio(
+selected_page = st.sidebar.radio(
     "Navigation",
     pages,
     index=pages.index(st.session_state.page)
 )
 
+# Only update if user manually changes
+if selected_page != st.session_state.page:
+    st.session_state.page = selected_page
+
 page = st.session_state.page
 
-# --------------------------------------------------
-# MODEL LOADER
-# --------------------------------------------------
-@st.cache_resource
-def load_model(path):
-    return YOLO(path)
-
 # ==================================================
-# 1️⃣ MODEL SELECTION (Dynamic + Fast)
+# MODEL SELECTION (FIXED FOR best.pt)
 # ==================================================
 if page == "Model Selection":
 
@@ -99,16 +100,20 @@ if page == "Model Selection":
     selected_model = st.selectbox("Select Model", model_files)
 
     if st.button("Load Model"):
-        with st.spinner("Loading model..."):
-            model_path = os.path.join(os.getcwd(), selected_model)
-            st.session_state.model_object = load_model(model_path)
+
+        with st.spinner(f"Loading {selected_model}..."):
+            model_path = os.path.abspath(selected_model)
+
+            # Force clean load
+            st.session_state.model_object = None
+            st.session_state.model_object = YOLO(model_path)
 
         st.success(f"{selected_model} loaded successfully!")
         st.session_state.page = "Upload & Detect"
         st.rerun()
 
 # ==================================================
-# 2️⃣ UPLOAD & DETECT (Optimized)
+# UPLOAD & DETECT
 # ==================================================
 if page == "Upload & Detect":
 
@@ -123,7 +128,6 @@ if page == "Upload & Detect":
     conf = st.slider("Confidence", 0.0, 1.0, 0.25)
     iou = st.slider("IoU", 0.0, 1.0, 0.45)
 
-    # ---------------- Upload Section ----------------
     uploaded_file = st.file_uploader(
         "Upload Image or Video", type=["jpg", "png", "jpeg", "mp4"])
 
@@ -135,28 +139,23 @@ if page == "Upload & Detect":
         with open(temp_path, "wb") as f:
             f.write(uploaded_file.read())
 
-        # -------- IMAGE --------
+        # IMAGE
         if uploaded_file.name.lower().endswith(("jpg", "png", "jpeg")):
-
             start = time.time()
-
             results = model(temp_path, conf=conf, iou=iou)
             img = results[0].plot()
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
             end = time.time()
-
             st.image(img)
             st.success(f"Detection Time: {round(end-start,2)} sec")
 
-        # -------- VIDEO (FAST STREAM) --------
+        # VIDEO (Optimized Stream)
         if uploaded_file.name.lower().endswith("mp4"):
 
             cap = cv2.VideoCapture(temp_path)
             FRAME_WINDOW = st.image([])
 
-            frame_skip = 2   # skip every 2 frames for speed
-
+            frame_skip = 2
             count = 0
 
             while cap.isOpened():
@@ -172,14 +171,14 @@ if page == "Upload & Detect":
 
                 results = model(frame, conf=conf, iou=iou)
                 annotated = results[0].plot()
-                annotated = cv2.cvtColor(annotated,
-                                         cv2.COLOR_BGR2RGB)
+                annotated = cv2.cvtColor(
+                    annotated, cv2.COLOR_BGR2RGB)
 
                 FRAME_WINDOW.image(annotated)
 
             cap.release()
 
-    # ---------------- Dataset Dropdown ----------------
+    # DATASET DROPDOWN
     st.subheader("Select Image From Dataset Folder")
 
     dataset_path = "datasets"
@@ -192,66 +191,58 @@ if page == "Upload & Detect":
         ]
 
         if images:
-
             selected_img = st.selectbox("Choose Dataset Image", images)
 
             if st.button("Detect Selected Image"):
-
                 img_path = os.path.join(dataset_path, selected_img)
-
                 results = model(img_path, conf=conf, iou=iou)
                 img = results[0].plot()
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
                 st.image(img)
-
         else:
-            st.info("No images in dataset folder.")
+            st.info("No images found in datasets folder.")
 
 # ==================================================
-# 3️⃣ WEBCAM (Streamlit Cloud Compatible)
+# WEBCAM LIVE (STREAMLIT CLOUD COMPATIBLE)
 # ==================================================
+class YOLOVideoProcessor(VideoProcessorBase):
+    def __init__(self):
+        self.model = st.session_state.model_object
+
+    def recv(self, frame):
+        img = frame.to_ndarray(format="bgr24")
+        results = self.model(img, conf=0.25, iou=0.45)
+        annotated = results[0].plot()
+        return av.VideoFrame.from_ndarray(
+            annotated, format="bgr24")
+
+
 if page == "Webcam Detection":
 
-    st.title("📷 Webcam Detection")
+    st.title("📷 Live Webcam Detection")
 
     if not st.session_state.model_object:
         st.warning("Load model first.")
         st.stop()
 
-    model = st.session_state.model_object
-
-    conf = st.slider("Confidence", 0.0, 1.0, 0.25)
-    iou = st.slider("IoU", 0.0, 1.0, 0.45)
-
-    camera_image = st.camera_input("Take a picture")
-
-    if camera_image:
-
-        file_bytes = camera_image.getvalue()
-        np_arr = np.frombuffer(file_bytes, np.uint8)
-        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-
-        results = model(frame, conf=conf, iou=iou)
-        annotated = results[0].plot()
-        annotated = cv2.cvtColor(annotated,
-                                 cv2.COLOR_BGR2RGB)
-
-        st.image(annotated)
+    webrtc_streamer(
+        key="yolo-live",
+        video_processor_factory=YOLOVideoProcessor,
+        media_stream_constraints={"video": True, "audio": False}
+    )
 
 # ==================================================
-# 4️⃣ EVALUATION DASHBOARD (UNCHANGED)
+# EVALUATION DASHBOARD (UNCHANGED)
 # ==================================================
 if page == "Evaluation Dashboard":
 
     st.title("📊 Model Evaluation")
 
     analysis_path = "analysis"
-
     metrics_file = os.path.join(analysis_path, "results.csv")
 
     if not os.path.exists(metrics_file):
-        st.error("results.csv not found.")
+        st.error("results.csv not found in analysis folder.")
         st.stop()
 
     df = pd.read_csv(metrics_file)
@@ -265,7 +256,6 @@ if page == "Evaluation Dashboard":
     latest = df.iloc[-1]
 
     col1, col2, col3, col4 = st.columns(4)
-
     col1.metric("mAP50", f"{latest[map50_col]*100:.2f}%")
     col2.metric("mAP50-95", f"{latest[map5095_col]*100:.2f}%")
     col3.metric("Precision", f"{latest[precision_col]*100:.2f}%")
