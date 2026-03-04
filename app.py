@@ -131,23 +131,44 @@ elif current_page == "Dataset Analysis":
 elif current_page == "Evaluation Dashboard":
     st.title("📊 Training Performance Dashboard")
     
-    st.subheader("📈 Training Progress (Loss, mAP, Recall)")
-    # Indentation fixed here
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.markdown("### 📉 Loss Curves")
-        if os.path.exists("analysis/results.png"):
-            st.image("analysis/results.png", caption="Box, Cls, DFL Loss")
-        
-        
-    with col_b:
-        st.markdown("### 🎯 Accuracy Matrix")
-        if os.path.exists("analysis/confusion_matrix.png"):
-            st.image("analysis/confusion_matrix.png", caption="Confusion Matrix")
-        
-        
+    # Pehle se maujood sections
+    col_old1, col_old2 = st.columns(2)
+    with col_old1:
+        st.markdown("### 📉 Training Results Matrix")
+        if os.path.exists("analysis/results.png"): st.image("analysis/results.png")
+    with col_old2:
+        st.markdown("### 🎯 Confusion Matrix")
+        if os.path.exists("analysis/confusion_matrix.png"): st.image("analysis/confusion_matrix.png")
+
     st.divider()
-    st.info("💡 Note: mAP50 aur mAP50-95 metrics automatically results.png ke graphs mein include hote hain.")
+    st.subheader("🧪 Additional Detailed Metrics")
+
+    # Aapke naye 3 graphs
+    col_new1, col_new2, col_new3 = st.columns(3)
+    
+    with col_new1:
+        st.markdown("### 📉 Loss Curve")
+        # Ensure 'loss_curve.png' exists in analysis folder
+        if os.path.exists("analysis/loss_curve.png"):
+            st.image("analysis/loss_curve.png", caption="Train vs Val Box Loss")
+        else:
+            st.info("Upload 'loss_curve.png' to analysis folder")
+
+    with col_new2:
+        st.markdown("### 📈 Training mAP Curve")
+        # Ensure 'map_curve.png' exists in analysis folder
+        if os.path.exists("analysis/map_curve.png"):
+            st.image("analysis/map_curve.png", caption="mAP@0.5 and mAP@0.5:0.95")
+        else:
+            st.info("Upload 'map_curve.png' to analysis folder")
+
+    with col_new3:
+        st.markdown("### 🎯 Precision & Recall Curve")
+        # Ensure 'pr_curve_detail.png' exists in analysis folder
+        if os.path.exists("analysis/pr_curve_detail.png"):
+            st.image("analysis/pr_curve_detail.png", caption="Precision and Recall over Epochs")
+        else:
+            st.info("Upload 'pr_curve_detail.png' to analysis folder")
 
 # --- WEBCAM DETECTION ---
 elif current_page == "Webcam Detection":
@@ -163,7 +184,6 @@ elif current_page == "Webcam Detection":
     if st.session_state.model:
         webrtc_streamer(key="live", video_processor_factory=VideoProcessor, rtc_configuration=RTC_CONFIG)
 
-# --- MODEL COMPARISON ---
 # --- MODEL COMPARISON (10 GRAPHS ADDED) ---
 elif current_page == "Model Comparison":
     st.title("⚖️ Advanced Benchmarking (10-Graph Matrix)")
