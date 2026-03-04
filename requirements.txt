@@ -1,8 +1,8 @@
 streamlit
 ultralytics
 opencv-python-headless
-pandas
 numpy
+pandas
 plotly
 streamlit-webrtc
 av
