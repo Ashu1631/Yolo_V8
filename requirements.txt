@@ -10,3 +10,5 @@ reportlab
 pyyaml
 streamlit-lottie
 requests
+imageio
+imageio-ffmpeg
