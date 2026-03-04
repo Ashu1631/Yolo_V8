@@ -1,9 +1,9 @@
-streamlit
-ultralytics
-opencv-python-headless
+streamlit==1.32.2
+ultralytics==8.1.0
+opencv-python-headless==4.9.0.80
 numpy
 pandas
 plotly
 pyyaml
-streamlit-webrtc
-av
+streamlit-webrtc==0.47.1
+av==10.0.0
