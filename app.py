@@ -6,7 +6,6 @@ import yaml
 import numpy as np
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 from ultralytics import YOLO
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
 import av
@@ -31,10 +30,14 @@ if not st.session_state.logged_in:
     password = st.text_input("Password", type="password")
 
     if st.button("Login"):
+
         if username in users and users[username]["password"] == password:
+
             st.session_state.logged_in = True
             st.rerun()
+
         else:
+
             st.error("Invalid Credentials")
 
     st.stop()
@@ -61,7 +64,11 @@ pages = [
     "Model Comparison"
 ]
 
-page = st.sidebar.radio("Go to", pages)
+page = st.sidebar.radio(
+    "Go to",
+    pages,
+    index=pages.index(st.session_state.page)
+)
 
 st.session_state.page = page
 
@@ -73,6 +80,7 @@ def extract_failures(results, image, name):
     boxes = results[0].boxes
 
     if boxes is None or len(boxes) == 0:
+
         cv2.imwrite(f"failure_cases/{name}", image)
 
 # ================= DETECTION SUMMARY =================
@@ -113,12 +121,14 @@ if page == "Model Selection":
         st.success("Model Loaded Successfully")
 
         st.session_state.page = "Upload & Detect"
+
         st.rerun()
 
 # ================= UPLOAD & DETECT =================
 if page == "Upload & Detect":
 
     if not st.session_state.model:
+
         st.warning("Load model first")
         st.stop()
 
@@ -126,10 +136,13 @@ if page == "Upload & Detect":
 
     tab1, tab2 = st.tabs(["Upload", "Dataset"])
 
-    # ===== Upload =====
+# ================= IMAGE / VIDEO UPLOAD =================
     with tab1:
 
-        uploaded = st.file_uploader("Upload Image / Video", type=["jpg","png","jpeg","mp4"])
+        uploaded = st.file_uploader(
+            "Upload Image / Video",
+            type=["jpg", "png", "jpeg", "mp4"]
+        )
 
         compare = st.checkbox("Compare best.pt vs yolov8n.pt")
 
@@ -142,8 +155,8 @@ if page == "Upload & Detect":
             with open(path, "wb") as f:
                 f.write(uploaded.read())
 
-            # IMAGE
-            if path.endswith(("jpg","png","jpeg")):
+# ================= IMAGE DETECTION =================
+            if path.endswith(("jpg", "png", "jpeg")):
 
                 img = cv2.imread(path)
 
@@ -168,7 +181,7 @@ if page == "Upload & Detect":
 
                     detect_time = time.time() - start
 
-                    fps = 1/detect_time if detect_time>0 else 0
+                    fps = 1 / detect_time if detect_time > 0 else 0
 
                     st.session_state.fps_history.append(fps)
 
@@ -197,12 +210,15 @@ if page == "Upload & Detect":
                             file_name="detection_report.csv"
                         )
 
-            # VIDEO
+# ================= VIDEO DETECTION =================
             if path.endswith("mp4"):
 
                 cap = cv2.VideoCapture(path)
 
                 frame_box = st.empty()
+
+                model1 = YOLO("best.pt")
+                model2 = YOLO("yolov8n.pt")
 
                 while cap.isOpened():
 
@@ -211,36 +227,63 @@ if page == "Upload & Detect":
                     if not ret:
                         break
 
-                    start = time.time()
+                    if compare:
 
-                    r = model(frame)
+                        r1 = model1(frame)
+                        r2 = model2(frame)
 
-                    fps = 1/(time.time()-start)
+                        f1 = r1[0].plot()
+                        f2 = r2[0].plot()
 
-                    st.session_state.fps_history.append(fps)
+                        combined = np.hstack((f1, f2))
 
-                    annotated = r[0].plot()
+                        frame_box.image(
+                            cv2.cvtColor(combined, cv2.COLOR_BGR2RGB),
+                            caption="Left: best.pt | Right: yolov8n.pt"
+                        )
 
-                    frame_box.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
+                    else:
+
+                        start = time.time()
+
+                        r = model(frame)
+
+                        fps = 1 / (time.time() - start)
+
+                        st.session_state.fps_history.append(fps)
+
+                        annotated = r[0].plot()
+
+                        frame_box.image(
+                            cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+                        )
 
                 cap.release()
 
-    # ===== Dataset =====
+# ================= DATASET =================
     with tab2:
 
         dataset_path = "datasets"
 
         if os.path.exists(dataset_path):
 
-            images = [f for f in os.listdir(dataset_path) if f.endswith(("jpg","png","jpeg"))]
+            images = [
+                f for f in os.listdir(dataset_path)
+                if f.endswith(("jpg", "png", "jpeg"))
+            ]
 
-            img_name = st.selectbox("Select Dataset Image", ["--Select--"] + images)
+            img_name = st.selectbox(
+                "Select Dataset Image",
+                ["--Select--"] + images
+            )
 
             compare_ds = st.checkbox("Compare Models")
 
             if img_name != "--Select--":
 
-                img = cv2.imread(os.path.join(dataset_path, img_name))
+                img = cv2.imread(
+                    os.path.join(dataset_path, img_name)
+                )
 
                 if compare_ds:
 
@@ -259,7 +302,9 @@ if page == "Upload & Detect":
 
                     r = model(img)
 
-                    st.image(cv2.cvtColor(r[0].plot(), cv2.COLOR_BGR2RGB))
+                    st.image(
+                        cv2.cvtColor(r[0].plot(), cv2.COLOR_BGR2RGB)
+                    )
 
                     extract_failures(r, img, img_name)
 
@@ -289,7 +334,7 @@ if page == "Webcam Detection":
     model = st.session_state.model
 
     RTC_CONFIGURATION = RTCConfiguration(
-        {"iceServers":[{"urls":["stun:stun.l.google.com:19302"]}]}
+        {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
     )
 
     class VideoProcessor(VideoProcessorBase):
@@ -302,13 +347,16 @@ if page == "Webcam Detection":
 
             annotated = r[0].plot()
 
-            return av.VideoFrame.from_ndarray(annotated, format="bgr24")
+            return av.VideoFrame.from_ndarray(
+                annotated,
+                format="bgr24"
+            )
 
     webrtc_streamer(
         key="webcam",
         video_processor_factory=VideoProcessor,
         rtc_configuration=RTC_CONFIGURATION,
-        media_stream_constraints={"video":True,"audio":False}
+        media_stream_constraints={"video": True, "audio": False}
     )
 
 # ================= EVALUATION =================
@@ -322,11 +370,15 @@ if page == "Evaluation Dashboard":
 
         st.subheader("Train Loss")
 
-        st.line_chart(df[['train/box_loss','train/cls_loss','train/dfl_loss']])
+        st.line_chart(df[
+            ['train/box_loss','train/cls_loss','train/dfl_loss']
+        ])
 
         st.subheader("Validation Loss")
 
-        st.line_chart(df[['val/box_loss','val/cls_loss','val/dfl_loss']])
+        st.line_chart(df[
+            ['val/box_loss','val/cls_loss','val/dfl_loss']
+        ])
 
         if os.path.exists("analysis/confusion_matrix.png"):
 
@@ -358,22 +410,39 @@ if page == "Model Comparison":
 
     comp_df = pd.DataFrame({
 
-        "Metric": ["mAP50","mAP50-95","Recall"],
+        "Metric": ["mAP50", "mAP50-95", "Recall"],
 
-        "best.pt": [0.82,0.65,0.78],
+        "best.pt": [0.82, 0.65, 0.78],
 
-        "yolov8n.pt": [0.74,0.55,0.70]
-
+        "yolov8n.pt": [0.74, 0.55, 0.70]
     })
 
     st.subheader("Bar Chart")
 
-    st.plotly_chart(px.bar(comp_df, x="Metric", y=["best.pt","yolov8n.pt"]))
+    st.plotly_chart(
+        px.bar(
+            comp_df,
+            x="Metric",
+            y=["best.pt", "yolov8n.pt"]
+        )
+    )
 
     st.subheader("Line Chart")
 
-    st.plotly_chart(px.line(comp_df, x="Metric", y=["best.pt","yolov8n.pt"]))
+    st.plotly_chart(
+        px.line(
+            comp_df,
+            x="Metric",
+            y=["best.pt", "yolov8n.pt"]
+        )
+    )
 
     st.subheader("Area Chart")
 
-    st.plotly_chart(px.area(comp_df, x="Metric", y=["best.pt","yolov8n.pt"]))
+    st.plotly_chart(
+        px.area(
+            comp_df,
+            x="Metric",
+            y=["best.pt", "yolov8n.pt"]
+        )
+    )
