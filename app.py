@@ -1,9 +1,6 @@
 import streamlit as st
 import os
 import cv2
-cv2.setNumThreads(0)
-cv2.ocl.setUseOpenCL(False)
-
 import time
 import yaml
 import numpy as np
@@ -11,8 +8,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from ultralytics import YOLO
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
-import av
+from PIL import Image
 
 st.set_page_config(page_title="YOLOv8 Enterprise AI", layout="wide")
 
@@ -41,15 +37,11 @@ if not st.session_state.logged_in:
             st.rerun()
 
         else:
-
             st.error("Invalid Credentials")
 
     st.stop()
 
 # ================= SESSION =================
-if "page" not in st.session_state:
-    st.session_state.page = "Model Selection"
-
 if "model" not in st.session_state:
     st.session_state.model = None
 
@@ -59,22 +51,16 @@ if "fps_history" not in st.session_state:
 # ================= NAVIGATION =================
 st.sidebar.title("🚀 Navigation")
 
-pages = [
-    "Model Selection",
-    "Upload & Detect",
-    "Webcam Detection",
-    "Evaluation Dashboard",
-    "Failure Cases",
-    "Model Comparison"
-]
-
 page = st.sidebar.radio(
     "Go to",
-    pages,
-    index=pages.index(st.session_state.page)
+    [
+        "Model Selection",
+        "Upload & Detect",
+        "Evaluation Dashboard",
+        "Failure Cases",
+        "Model Comparison"
+    ]
 )
-
-st.session_state.page = page
 
 # ================= FAILURE EXTRACTION =================
 def extract_failures(results, image, name):
@@ -84,6 +70,7 @@ def extract_failures(results, image, name):
     boxes = results[0].boxes
 
     if boxes is None or len(boxes) == 0:
+
         cv2.imwrite(f"failure_cases/{name}", image)
 
 # ================= DETECTION SUMMARY =================
@@ -122,10 +109,6 @@ if page == "Model Selection":
 
         st.success("Model Loaded Successfully")
 
-        st.session_state.page = "Upload & Detect"
-
-        st.rerun()
-
 # ================= UPLOAD & DETECT =================
 if page == "Upload & Detect":
 
@@ -138,14 +121,10 @@ if page == "Upload & Detect":
 
     uploaded = st.file_uploader(
         "Upload Image / Video",
-        type=["jpg", "png", "jpeg", "mp4"]
+        type=["jpg","png","jpeg","mp4"]
     )
 
-    compare = st.checkbox("Compare best.pt vs yolov8n.pt")
-
     if uploaded:
-
-        st.session_state.fps_history = []
 
         os.makedirs("outputs", exist_ok=True)
 
@@ -154,63 +133,46 @@ if page == "Upload & Detect":
         with open(path, "wb") as f:
             f.write(uploaded.read())
 
-# ================= IMAGE DETECTION =================
+        # IMAGE
         if path.endswith(("jpg","png","jpeg")):
 
             img = cv2.imread(path)
 
-            if compare:
+            start = time.time()
 
-                col1, col2 = st.columns(2)
+            r = model(img)
 
-                r1 = YOLO("best.pt")(img)
-                r2 = YOLO("yolov8n.pt")(img)
+            detect_time = time.time() - start
 
-                col1.image(cv2.cvtColor(r1[0].plot(), cv2.COLOR_BGR2RGB))
-                col2.image(cv2.cvtColor(r2[0].plot(), cv2.COLOR_BGR2RGB))
+            fps = 1/detect_time if detect_time>0 else 0
 
-            else:
+            st.session_state.fps_history.append(fps)
 
-                start = time.time()
+            annotated = r[0].plot()
 
-                r = model(img)
+            st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
 
-                fps = 1/(time.time()-start)
+            extract_failures(r, img, uploaded.name)
 
-                st.session_state.fps_history.append(fps)
+            counts = detection_summary(r)
 
-                annotated = r[0].plot()
+            if counts:
 
-                st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
+                df = pd.DataFrame({
+                    "Class": list(counts.keys()),
+                    "Count": list(counts.values())
+                })
 
-                extract_failures(r, img, uploaded.name)
+                st.subheader("Detection Report")
 
-                counts = detection_summary(r)
+                st.dataframe(df)
 
-                if counts:
-
-                    df = pd.DataFrame({
-                        "Class": list(counts.keys()),
-                        "Count": list(counts.values())
-                    })
-
-                    st.dataframe(df)
-
-                    st.download_button(
-                        "Download CSV",
-                        df.to_csv(index=False),
-                        file_name="detection_report.csv"
-                    )
-
-# ================= VIDEO DETECTION =================
+        # VIDEO
         if path.endswith("mp4"):
 
             cap = cv2.VideoCapture(path)
 
             frame_box = st.empty()
-
-            model1 = YOLO("best.pt")
-            model2 = YOLO("yolov8n.pt")
 
             while cap.isOpened():
 
@@ -219,84 +181,31 @@ if page == "Upload & Detect":
                 if not ret:
                     break
 
-                if compare:
+                r = model(frame)
 
-                    r1 = model1(frame)
-                    r2 = model2(frame)
+                annotated = r[0].plot()
 
-                    f1 = r1[0].plot()
-                    f2 = r2[0].plot()
-
-                    combined = np.hstack((f1,f2))
-
-                    frame_box.image(
-                        cv2.cvtColor(combined, cv2.COLOR_BGR2RGB)
-                    )
-
-                else:
-
-                    start = time.time()
-
-                    r = model(frame)
-
-                    fps = 1/(time.time()-start)
-
-                    st.session_state.fps_history.append(fps)
-
-                    annotated = r[0].plot()
-
-                    frame_box.image(
-                        cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
-                    )
+                frame_box.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
 
             cap.release()
 
 # ================= FPS GRAPH =================
-    if st.session_state.fps_history:
+if st.session_state.fps_history:
 
-        fps_df = pd.DataFrame({
-            "Frame": range(len(st.session_state.fps_history)),
-            "FPS": st.session_state.fps_history
-        })
+    fps_df = pd.DataFrame({
+        "Frame": range(len(st.session_state.fps_history)),
+        "FPS": st.session_state.fps_history
+    })
 
-        st.subheader("⚡ FPS Performance")
+    st.subheader("⚡ FPS Performance")
 
-        st.plotly_chart(
-            px.line(
-                fps_df,
-                x="Frame",
-                y="FPS",
-                markers=True
-            ),
-            use_container_width=True
-        )
-
-# ================= WEBCAM =================
-if page == "Webcam Detection":
-
-    model = st.session_state.model
-
-    RTC_CONFIGURATION = RTCConfiguration(
-        {"iceServers":[{"urls":["stun:stun.l.google.com:19302"]}]}
-    )
-
-    class VideoProcessor(VideoProcessorBase):
-
-        def recv(self, frame):
-
-            img = frame.to_ndarray(format="bgr24")
-
-            r = model(img)
-
-            annotated = r[0].plot()
-
-            return av.VideoFrame.from_ndarray(annotated, format="bgr24")
-
-    webrtc_streamer(
-        key="webcam",
-        video_processor_factory=VideoProcessor,
-        rtc_configuration=RTC_CONFIGURATION,
-        media_stream_constraints={"video":True,"audio":False}
+    st.plotly_chart(
+        px.line(
+            fps_df,
+            x="Frame",
+            y="FPS"
+        ),
+        use_container_width=True
     )
 
 # ================= EVALUATION =================
@@ -308,17 +217,13 @@ if page == "Evaluation Dashboard":
 
         df = pd.read_csv("analysis/results.csv")
 
-        st.subheader("Training Loss")
+        st.subheader("Train Loss")
+
         st.line_chart(df[['train/box_loss','train/cls_loss','train/dfl_loss']])
 
         st.subheader("Validation Loss")
+
         st.line_chart(df[['val/box_loss','val/cls_loss','val/dfl_loss']])
-
-        st.subheader("Precision & Recall")
-        st.line_chart(df[['metrics/precision(B)','metrics/recall(B)']])
-
-        st.subheader("mAP")
-        st.line_chart(df[['metrics/mAP50(B)','metrics/mAP50-95(B)']])
 
 # ================= FAILURE CASES =================
 if page == "Failure Cases":
@@ -342,29 +247,12 @@ if page == "Model Comparison":
 
     comp_df = pd.DataFrame({
 
-        "Metric":["mAP50","mAP50-95","Recall","Precision"],
-        "best.pt":[0.82,0.65,0.78,0.80],
-        "yolov8n.pt":[0.74,0.55,0.70,0.73]
+        "Metric": ["mAP50","mAP50-95","Recall"],
+
+        "best.pt": [0.82,0.65,0.78],
+
+        "yolov8n.pt": [0.74,0.55,0.70]
 
     })
 
-    st.subheader("Bar Chart")
-    st.plotly_chart(px.bar(comp_df,x="Metric",y=["best.pt","yolov8n.pt"]))
-
-    st.subheader("Pie Chart")
-    pie_df = pd.DataFrame({"Model":["best.pt","yolov8n.pt"],"Score":[0.82,0.74]})
-    st.plotly_chart(px.pie(pie_df,names="Model",values="Score"))
-
-    st.subheader("Area Chart")
-    st.plotly_chart(px.area(comp_df,x="Metric",y=["best.pt","yolov8n.pt"]))
-
-    st.subheader("Histogram")
-    hist_df = pd.DataFrame({"Score":[0.82,0.65,0.78,0.80,0.74,0.55,0.70,0.73]})
-    st.plotly_chart(px.histogram(hist_df,x="Score"))
-
-    st.subheader("Waterfall Chart")
-    fig = go.Figure(go.Waterfall(
-        x=comp_df["Metric"],
-        y=comp_df["best.pt"]
-    ))
-    st.plotly_chart(fig)
+    st.plotly_chart(px.bar(comp_df, x="Metric", y=["best.pt","yolov8n.pt"]))
