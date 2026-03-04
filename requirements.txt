@@ -1,8 +1,12 @@
 streamlit
 ultralytics
+torch
 opencv-python-headless
 numpy
 pandas
 plotly
+streamlit-webrtc
+av
 pyyaml
-pillow
+imageio
+imageio-ffmpeg
