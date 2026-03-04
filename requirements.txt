@@ -4,11 +4,6 @@ opencv-python-headless
 numpy
 pandas
 plotly
+pyyaml
 streamlit-webrtc
 av
-reportlab
-pyyaml
-streamlit-lottie
-requests
-imageio
-imageio-ffmpeg
