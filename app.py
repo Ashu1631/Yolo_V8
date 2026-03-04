@@ -6,6 +6,7 @@ import yaml
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from ultralytics import YOLO
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
 import av
@@ -147,6 +148,8 @@ if page == "Upload & Detect":
         compare = st.checkbox("Compare best.pt vs yolov8n.pt")
 
         if uploaded:
+
+            st.session_state.fps_history = []
 
             os.makedirs("outputs", exist_ok=True)
 
@@ -309,24 +312,24 @@ if page == "Upload & Detect":
                     extract_failures(r, img, img_name)
 
 # ================= FPS GRAPH =================
-if st.session_state.fps_history:
+    if st.session_state.fps_history:
 
-    fps_df = pd.DataFrame({
-        "Frame": range(len(st.session_state.fps_history)),
-        "FPS": st.session_state.fps_history
-    })
+        fps_df = pd.DataFrame({
+            "Frame": range(len(st.session_state.fps_history)),
+            "FPS": st.session_state.fps_history
+        })
 
-    st.subheader("⚡ FPS Performance")
+        st.subheader("⚡ FPS Performance")
 
-    st.plotly_chart(
-        px.line(
-            fps_df,
-            x="Frame",
-            y="FPS",
-            markers=True
-        ),
-        use_container_width=True
-    )
+        st.plotly_chart(
+            px.line(
+                fps_df,
+                x="Frame",
+                y="FPS",
+                markers=True
+            ),
+            use_container_width=True
+        )
 
 # ================= WEBCAM =================
 if page == "Webcam Detection":
@@ -362,23 +365,27 @@ if page == "Webcam Detection":
 # ================= EVALUATION =================
 if page == "Evaluation Dashboard":
 
-    st.title("Evaluation Dashboard")
+    st.title("📊 Evaluation Dashboard")
 
     if os.path.exists("analysis/results.csv"):
 
         df = pd.read_csv("analysis/results.csv")
 
-        st.subheader("Train Loss")
+        st.subheader("Training Loss")
 
-        st.line_chart(df[
-            ['train/box_loss','train/cls_loss','train/dfl_loss']
-        ])
+        st.line_chart(df[['train/box_loss','train/cls_loss','train/dfl_loss']])
 
         st.subheader("Validation Loss")
 
-        st.line_chart(df[
-            ['val/box_loss','val/cls_loss','val/dfl_loss']
-        ])
+        st.line_chart(df[['val/box_loss','val/cls_loss','val/dfl_loss']])
+
+        st.subheader("Precision & Recall")
+
+        st.line_chart(df[['metrics/precision(B)','metrics/recall(B)']])
+
+        st.subheader("mAP Performance")
+
+        st.line_chart(df[['metrics/mAP50(B)','metrics/mAP50-95(B)']])
 
         if os.path.exists("analysis/confusion_matrix.png"):
 
@@ -406,43 +413,35 @@ if page == "Failure Cases":
 # ================= MODEL COMPARISON =================
 if page == "Model Comparison":
 
-    st.title("Model Comparison")
+    st.title("📊 Model Comparison")
 
     comp_df = pd.DataFrame({
 
-        "Metric": ["mAP50", "mAP50-95", "Recall"],
+        "Metric": ["mAP50","mAP50-95","Recall","Precision"],
 
-        "best.pt": [0.82, 0.65, 0.78],
+        "best.pt": [0.82,0.65,0.78,0.80],
 
-        "yolov8n.pt": [0.74, 0.55, 0.70]
+        "yolov8n.pt": [0.74,0.55,0.70,0.73]
+
     })
 
     st.subheader("Bar Chart")
+    st.plotly_chart(px.bar(comp_df, x="Metric", y=["best.pt","yolov8n.pt"]))
 
-    st.plotly_chart(
-        px.bar(
-            comp_df,
-            x="Metric",
-            y=["best.pt", "yolov8n.pt"]
-        )
-    )
-
-    st.subheader("Line Chart")
-
-    st.plotly_chart(
-        px.line(
-            comp_df,
-            x="Metric",
-            y=["best.pt", "yolov8n.pt"]
-        )
-    )
+    st.subheader("Pie Chart")
+    pie_df = pd.DataFrame({"Model":["best.pt","yolov8n.pt"],"mAP50":[0.82,0.74]})
+    st.plotly_chart(px.pie(pie_df, names="Model", values="mAP50"))
 
     st.subheader("Area Chart")
+    st.plotly_chart(px.area(comp_df, x="Metric", y=["best.pt","yolov8n.pt"]))
 
-    st.plotly_chart(
-        px.area(
-            comp_df,
-            x="Metric",
-            y=["best.pt", "yolov8n.pt"]
-        )
-    )
+    st.subheader("Histogram")
+    hist_df = pd.DataFrame({"Scores":[0.82,0.65,0.78,0.80,0.74,0.55,0.70,0.73]})
+    st.plotly_chart(px.histogram(hist_df, x="Scores"))
+
+    st.subheader("Waterfall Chart")
+    fig = go.Figure(go.Waterfall(
+        x=comp_df["Metric"],
+        y=comp_df["best.pt"]
+    ))
+    st.plotly_chart(fig)
