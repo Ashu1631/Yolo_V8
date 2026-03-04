@@ -149,26 +149,26 @@ elif current_page == "Evaluation Dashboard":
     with col_new1:
         st.markdown("### 📉 Loss Curve")
         # Ensure 'loss_curve.png' exists in analysis folder
-        if os.path.exists("analysis/loss_curve.png"):
-            st.image("analysis/loss_curve.png", caption="Train vs Val Box Loss")
+        if os.path.exists("analysis/map_curve.png"):
+            st.image("analysis/map_curve.png", caption="Train vs Val Box Loss")
         else:
-            st.info("Upload 'loss_curve.png' to analysis folder")
+            st.info("Upload 'map_curve.png' to analysis folder")
 
     with col_new2:
         st.markdown("### 📈 Training mAP Curve")
         # Ensure 'map_curve.png' exists in analysis folder
-        if os.path.exists("analysis/map_curve.png"):
-            st.image("analysis/map_curve.png", caption="mAP@0.5 and mAP@0.5:0.95")
+        if os.path.exists("analysis/loss_curve.png"):
+            st.image("analysis/loss_curve.png", caption="mAP@0.5 and mAP@0.5:0.95")
         else:
-            st.info("Upload 'map_curve.png' to analysis folder")
+            st.info("Upload 'loss_curve.png' to analysis folder")
 
     with col_new3:
         st.markdown("### 🎯 Precision & Recall Curve")
-        # Ensure 'pr_curve_detail.png' exists in analysis folder
-        if os.path.exists("analysis/pr_curve_detail.png"):
-            st.image("analysis/pr_curve_detail.png", caption="Precision and Recall over Epochs")
+        # Ensure 'BoxPR_curve.png' exists in analysis folder
+        if os.path.exists("analysis/BoxPR_curve.png"):
+            st.image("analysis/BoxPR_curve.png", caption="Precision and Recall over Epochs")
         else:
-            st.info("Upload 'pr_curve_detail.png' to analysis folder")
+            st.info("Upload 'BoxPR_curve.png' to analysis folder")
 
 # --- WEBCAM DETECTION ---
 elif current_page == "Webcam Detection":
