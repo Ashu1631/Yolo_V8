@@ -1,10 +1,12 @@
 streamlit
 ultralytics
 opencv-python-headless
+pandas
+numpy
+plotly
 streamlit-webrtc
 av
-plotly
-matplotlib
-pandas
-pyyaml
 reportlab
+pyyaml
+streamlit-lottie
+requests
