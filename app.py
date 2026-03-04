@@ -8,251 +8,251 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from ultralytics import YOLO
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
-import av
-from datetime import datetime
+from PIL import Image
 
-# Page Configuration
-st.set_page_config(page_title="Ashu YOLO Enterprise Dashboard", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="YOLOv8 Enterprise AI", layout="wide")
 
-# ================= 1. DIRECTORY & SESSION SETUP =================
-# Added "dataset" directory to the list
-DIRS = ["outputs/images", "outputs/videos", "failure_cases", "analysis", "dataset"]
-for d in DIRS:
-    os.makedirs(d, exist_ok=True)
-
+# ================= LOGIN =================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
-if "page" not in st.session_state:
-    st.session_state.page = "Model Selection"
-if "model" not in st.session_state:
-    st.session_state.model = None
-if "model_name" not in st.session_state:
-    st.session_state.model_name = ""
-if "fps_history" not in st.session_state:
-    st.session_state.fps_history = {}
-# For side-by-side comparison
-if "secondary_model" not in st.session_state:
-    st.session_state.secondary_model = None
 
-# ================= 2. LOGIN SYSTEM =================
+if os.path.exists("users.yaml"):
+    with open("users.yaml") as f:
+        users = yaml.safe_load(f).get("users", {})
+else:
+    users = {}
+
 if not st.session_state.logged_in:
-    st.markdown("<h1 style='text-align:center;color:#00ffff'>🚀 Ashu YOLO Enterprise</h1>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.title("🔐 Login")
-        user = st.text_input("Username")
-        pw = st.text_input("Password", type="password")
-        if st.button("Login", use_container_width=True):
-            if user == "admin" and pw == "admin123":
-                st.session_state.logged_in = True
-                st.rerun()
-            else:
-                st.error("Invalid Credentials")
+
+    st.title("🔐 Login")
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+
+        if username in users and users[username]["password"] == password:
+
+            st.session_state.logged_in = True
+            st.rerun()
+
+        else:
+            st.error("Invalid Credentials")
+
     st.stop()
 
-# ================= 3. NAVIGATION LOGIC =================
-# Added "Dataset Analysis" to the pages
-pages = ["Model Selection", "Upload & Detect", "Dataset Analysis", "Webcam Detection", "Evaluation Dashboard", "Failure Cases", "Model Comparison"]
-current_page = st.sidebar.radio("🚀 Navigation", pages, index=pages.index(st.session_state.page))
+# ================= SESSION =================
+if "model" not in st.session_state:
+    st.session_state.model = None
 
-# ================= 4. HELPER FUNCTIONS =================
-def save_result(frame, folder="images"):
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    path = f"outputs/{folder}/det_{ts}.jpg"
-    cv2.imwrite(path, frame)
-    return path
+if "fps_history" not in st.session_state:
+    st.session_state.fps_history = []
 
-def extract_failures(results, image, filename):
+# ================= NAVIGATION =================
+st.sidebar.title("🚀 Navigation")
+
+page = st.sidebar.radio(
+    "Go to",
+    [
+        "Model Selection",
+        "Upload & Detect",
+        "Evaluation Dashboard",
+        "Failure Cases",
+        "Model Comparison"
+    ]
+)
+
+# ================= FAILURE EXTRACTION =================
+def extract_failures(results, image, name):
+
+    os.makedirs("failure_cases", exist_ok=True)
+
     boxes = results[0].boxes
-    if boxes is None or len(boxes) == 0 or any(boxes.conf.cpu().numpy() < 0.25):
-        cv2.imwrite(f"failure_cases/fail_{filename}", image)
 
-# ================= 5. PAGE CONTENT =================
+    if boxes is None or len(boxes) == 0:
 
-# --- MODEL SELECTION ---
-if current_page == "Model Selection":
+        cv2.imwrite(f"failure_cases/{name}", image)
+
+# ================= DETECTION SUMMARY =================
+def detection_summary(results):
+
+    counts = {}
+
+    boxes = results[0].boxes
+
+    if boxes is None:
+        return counts
+
+    classes = boxes.cls.cpu().numpy()
+    names = results[0].names
+
+    for c in classes:
+
+        label = names[int(c)]
+
+        counts[label] = counts.get(label, 0) + 1
+
+    return counts
+
+# ================= MODEL SELECTION =================
+if page == "Model Selection":
+
     st.title("📦 Model Selection")
-    models = [f for f in os.listdir() if f.endswith(".pt")]
-    selected = st.selectbox("Select Primary Model", ["-- Select --"] + models)
-    secondary = st.selectbox("Select Secondary Model (For Side-by-Side Comparison)", ["None"] + models)
-    
-    if selected != "-- Select --":
-        if st.button("Initialize Engines"):
-            with st.spinner("Initializing AI Engines..."):
-                st.session_state.model = YOLO(selected)
-                st.session_state.model_name = selected
-                st.session_state.fps_history[selected] = []
-                if secondary != "None":
-                    st.session_state.secondary_model = YOLO(secondary)
-                    st.session_state.secondary_name = secondary
-                st.success(f"Models Loaded!")
-                time.sleep(1)
-                st.session_state.page = "Upload & Detect"
-                st.rerun()
 
-# --- UPLOAD & DETECT (With Side-by-Side Comparison) ---
-elif current_page == "Upload & Detect":
-    st.title(f"🔍 Detection Engine")
+    models = [f for f in os.listdir() if f.endswith(".pt")]
+
+    selected = st.selectbox("Select Model", ["-- Select --"] + models)
+
+    if selected != "-- Select --":
+
+        st.session_state.model = YOLO(selected)
+
+        st.success("Model Loaded Successfully")
+
+# ================= UPLOAD & DETECT =================
+if page == "Upload & Detect":
+
     if not st.session_state.model:
-        st.warning("⚠️ Please select a model first.")
+
+        st.warning("Load model first")
         st.stop()
-    
-    uploaded = st.file_uploader("Upload Image or Video", type=["jpg", "png", "jpeg", "mp4"])
+
+    model = st.session_state.model
+
+    uploaded = st.file_uploader(
+        "Upload Image / Video",
+        type=["jpg","png","jpeg","mp4"]
+    )
 
     if uploaded:
-        file_path = os.path.join("outputs", uploaded.name)
-        with open(file_path, "wb") as f:
-            f.write(uploaded.getbuffer())
 
-        # Logic for Side-by-Side Mode
-        if st.session_state.secondary_model and uploaded.name.lower().endswith(('.jpg', '.png', '.jpeg')):
-            st.subheader("⚖️ Side-by-Side Model Comparison")
-            col1, col2 = st.columns(2)
-            img = cv2.imread(file_path)
-            
-            with col1:
-                st.info(f"Primary: {st.session_state.model_name}")
-                res1 = st.session_state.model(img)
-                st.image(res1[0].plot(), channels="BGR")
-            
-            with col2:
-                st.info(f"Secondary: {st.session_state.secondary_name}")
-                res2 = st.session_state.secondary_model(img)
-                st.image(res2[0].plot(), channels="BGR")
-        
-        # Standard Single Inference (Images/Video)
-        elif uploaded.name.endswith(".mp4"):
-            cap = cv2.VideoCapture(file_path)
-            st_frame = st.empty()
+        os.makedirs("outputs", exist_ok=True)
+
+        path = os.path.join("outputs", uploaded.name)
+
+        with open(path, "wb") as f:
+            f.write(uploaded.read())
+
+        # IMAGE
+        if path.endswith(("jpg","png","jpeg")):
+
+            img = cv2.imread(path)
+
+            start = time.time()
+
+            r = model(img)
+
+            detect_time = time.time() - start
+
+            fps = 1/detect_time if detect_time>0 else 0
+
+            st.session_state.fps_history.append(fps)
+
+            annotated = r[0].plot()
+
+            st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
+
+            extract_failures(r, img, uploaded.name)
+
+            counts = detection_summary(r)
+
+            if counts:
+
+                df = pd.DataFrame({
+                    "Class": list(counts.keys()),
+                    "Count": list(counts.values())
+                })
+
+                st.subheader("Detection Report")
+
+                st.dataframe(df)
+
+        # VIDEO
+        if path.endswith("mp4"):
+
+            cap = cv2.VideoCapture(path)
+
+            frame_box = st.empty()
+
             while cap.isOpened():
+
                 ret, frame = cap.read()
-                if not ret: break
-                t_start = time.time()
-                results = st.session_state.model(frame)
-                st.session_state.fps_history[st.session_state.model_name].append(1 / (time.time() - t_start))
-                st_frame.image(results[0].plot(), channels="BGR")
+
+                if not ret:
+                    break
+
+                r = model(frame)
+
+                annotated = r[0].plot()
+
+                frame_box.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB))
+
             cap.release()
-            
-            st.subheader("📈 Performance Metrics")
-            fps_df = pd.DataFrame(st.session_state.fps_history[st.session_state.model_name], columns=["FPS"])
-            st.plotly_chart(px.line(fps_df, title="Inference Speed (FPS)"), use_container_width=True)
-        else:
-            img = cv2.imread(file_path)
-            results = st.session_state.model(img)
-            res_img = results[0].plot()
-            st.image(res_img, channels="BGR", caption=f"Result: {st.session_state.model_name}")
-            save_path = save_result(res_img, "images")
-            st.success(f"Result auto-saved to {save_path}")
-            extract_failures(results, img, uploaded.name)
 
-# --- DATASET ANALYSIS (New Sidebar Option) ---
-elif current_page == "Dataset Analysis":
-    st.title("📁 Dataset Inventory & Stats")
-    dataset_files = [f for f in os.listdir("dataset") if f.endswith(('.jpg', '.png'))]
-    
-    if dataset_files:
-        st.write(f"Total Images in Dataset: **{len(dataset_files)}**")
-        # Mock class distribution for comparison
-        dist_data = {"Class": ["Person", "Car", "Bike", "Dog"], "Count": [120, 85, 40, 25]}
-        df_dist = pd.DataFrame(dist_data)
-        st.plotly_chart(px.bar(df_dist, x="Class", y="Count", color="Class", title="Class Distribution in Dataset"))
-    else:
-        st.info("The `/dataset` folder is currently empty. Upload your dataset images there.")
+# ================= FPS GRAPH =================
+if st.session_state.fps_history:
 
-# --- EVALUATION DASHBOARD (YOLO Style Matrix) ---
-elif current_page == "Evaluation Dashboard":
-    st.title("📊 Training Evaluation Matrix")
+    fps_df = pd.DataFrame({
+        "Frame": range(len(st.session_state.fps_history)),
+        "FPS": st.session_state.fps_history
+    })
+
+    st.subheader("⚡ FPS Performance")
+
+    st.plotly_chart(
+        px.line(
+            fps_df,
+            x="Frame",
+            y="FPS"
+        ),
+        use_container_width=True
+    )
+
+# ================= EVALUATION =================
+if page == "Evaluation Dashboard":
+
+    st.title("Evaluation Dashboard")
+
     if os.path.exists("analysis/results.csv"):
+
         df = pd.read_csv("analysis/results.csv")
-        # Creating a 2x2 grid similar to YOLO training logs
-        c1, c2 = st.columns(2)
-        with c1:
-            st.plotly_chart(px.line(df, y=['train/box_loss', 'val/box_loss'], title="Box Loss (Train vs Val)"))
-            st.plotly_chart(px.line(df, y='metrics/mAP50(B)', title="mAP @ 50"))
-        with c2:
-            st.plotly_chart(px.line(df, y='metrics/recall(B)', title="Recall Curve"))
-            st.plotly_chart(px.line(df, y='metrics/mAP50-95(B)', title="mAP @ 50-95"))
-    else:
-        st.info("Showing Official YOLOv8 Training Results Template.")
-        
-        st.image("https://raw.githubusercontent.com/ultralytics/assets/main/yolov8/results_plots.png")
 
-# --- MODEL COMPARISON (With Funnel Chart) ---
-elif current_page == "Model Comparison":
-    st.title("⚖️ Advanced Model Benchmarking")
-    
-    data = {
-        "Model": ["YOLOv8n", "YOLOv8s", "Your_Custom_Model"],
-        "mAP50": [0.72, 0.78, 0.88],
-        "Recall": [0.68, 0.75, 0.82],
-        "Precision": [0.70, 0.77, 0.85],
-        "Latency_ms": [8, 12, 18],
-        "F1_Score": [0.71, 0.76, 0.84]
-    }
-    df = pd.DataFrame(data)
+        st.subheader("Train Loss")
 
-    tab_charts, tab_stats = st.tabs(["📊 Performance Visualization", "📋 Detailed Reports"])
+        st.line_chart(df[['train/box_loss','train/cls_loss','train/dfl_loss']])
 
-    with tab_charts:
-        # Added Funnel Chart here
-        st.subheader("0. Detection Pipeline Funnel")
-        funnel_data = dict(
-            number=[100, 80, 60, 55],
-            stage=["Input Images", "Candidate Boxes", "Confidence Threshold", "NMS Filtered"]
-        )
-        st.plotly_chart(px.funnel(funnel_data, x='number', y='stage', title="Detection Flow Efficiency"))
+        st.subheader("Validation Loss")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("1. Precision vs Model (Bar)")
-            st.plotly_chart(px.bar(df, x="Model", y="Precision", color="Model"), use_container_width=True)
-        with col2:
-            st.subheader("2. Latency Trend (Line)")
-            st.plotly_chart(px.line(df, x="Model", y="Latency_ms", markers=True), use_container_width=True)
+        st.line_chart(df[['val/box_loss','val/cls_loss','val/dfl_loss']])
 
-        col3, col4 = st.columns(2)
-        with col3:
-            st.subheader("3. mAP50 Confidence (Area)")
-            st.plotly_chart(px.area(df, x="Model", y="mAP50"), use_container_width=True)
-        with col4:
-            st.subheader("4. F1 Score Distribution (Pie)")
-            st.plotly_chart(px.pie(df, names="Model", values="F1_Score", hole=0.3), use_container_width=True)
+# ================= FAILURE CASES =================
+if page == "Failure Cases":
 
-        st.divider()
-        st.subheader("5. Performance Gain (Waterfall)")
-        fig_water = go.Figure(go.Waterfall(x = df["Model"], y = [0.72, 0.06, 0.10], measure = ["relative", "relative", "relative"]))
-        st.plotly_chart(fig_water, use_container_width=True)
+    st.title("Failure Cases")
 
-        st.subheader("6. Metrics Correlation (Heatmap)")
-        st.plotly_chart(px.imshow(df.corr(numeric_only=True), text_auto=True), use_container_width=True)
-
-    with tab_stats:
-        st.subheader("7. Detailed Metrics Table")
-        st.dataframe(df.style.highlight_max(axis=0, color='green'), use_container_width=True)
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button(label="📥 Download Benchmark Report", data=csv, file_name="benchmark_report.csv", mime="text/csv")
-
-# --- WEBCAM ---
-elif current_page == "Webcam Detection":
-    st.title("🎥 Live Stream")
-    if st.session_state.model:
-        class VideoProcessor(VideoProcessorBase):
-            def recv(self, frame):
-                img = frame.to_ndarray(format="bgr24")
-                res = st.session_state.model(img)
-                return av.VideoFrame.from_ndarray(res[0].plot(), format="bgr24")
-        webrtc_streamer(key="webcam", video_processor_factory=VideoProcessor)
-    else:
-        st.error("Select model first!")
-
-# --- FAILURE CASES ---
-elif current_page == "Failure Cases":
-    st.title("⚠️ Automated Failure Logs")
     if os.path.exists("failure_cases"):
-        fails = [f for f in os.listdir("failure_cases") if f.endswith(('.jpg', '.png'))]
-        if fails:
-            selected_fail = st.selectbox("Review Failures", fails)
-            st.image(os.path.join("failure_cases", selected_fail))
-        else:
-            st.success("No critical failure cases detected!")
+
+        files = os.listdir("failure_cases")
+
+        if files:
+
+            f = st.selectbox("Select Failure", files)
+
+            st.image(os.path.join("failure_cases", f))
+
+# ================= MODEL COMPARISON =================
+if page == "Model Comparison":
+
+    st.title("Model Comparison")
+
+    comp_df = pd.DataFrame({
+
+        "Metric": ["mAP50","mAP50-95","Recall"],
+
+        "best.pt": [0.82,0.65,0.78],
+
+        "yolov8n.pt": [0.74,0.55,0.70]
+
+    })
+
+    st.plotly_chart(px.bar(comp_df, x="Metric", y=["best.pt","yolov8n.pt"]))
