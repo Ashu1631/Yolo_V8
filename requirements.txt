@@ -9,5 +9,5 @@ plotly
 pyyaml
 streamlit-webrtc
 av
-supervision==0.18.0
+supervision
 lapx
