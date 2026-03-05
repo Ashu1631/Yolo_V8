@@ -27,46 +27,36 @@ if "secondary_model" not in st.session_state: st.session_state.secondary_model =
     
 # ================= 2. SLEEK PLOT HELPER =================
 def get_sleek_plot(image, model):
-    """YOLO Tracking with fixed Supervision 0.18+ API."""
+    """Simple and Stable version that won't crash."""
     
-    # 1. Prediction/Tracking Logic
-    try:
-        results = model.track(image, persist=True, conf=0.3, verbose=False)[0]
-    except Exception:
-        results = model.predict(image, conf=0.3, verbose=False)[0]
-        
+    # 1. Standard Prediction (No complex tracking to avoid 'lap' errors)
+    results = model(image, conf=0.3)[0]
+    
+    # 2. Get Detections
     detections = sv.Detections.from_ultralytics(results)
     
-    # 2. Smart labels (Name + % + ID)
-    labels = []
-    for i in range(len(detections)):
-        class_id = detections.class_id[i]
-        conf = detections.confidence[i]
-        name = model.names[class_id]
-        label = f"{name} {conf*100:.0f}%"
-        if detections.tracker_id is not None:
-            label = f"#{detections.tracker_id[i]} {label}"
-        labels.append(label)
-
-    # 3. Annotators Setup (Fixed for TypeError)
-    # Naye version mein 'thickness' yahan nahi dalte
-    box_annotator = sv.BoxAnnotator(color_lookup=sv.ColorLookup.CLASS)
+    # 3. Create simple labels with Percentage
+    # model.names class index ko asli naam mein badal dega
+    labels = [
+        f"{model.names[class_id]} {confidence*100:.0f}%"
+        for class_id, confidence in zip(detections.class_id, detections.confidence)
+    ]
     
+    # 4. Initialize Annotators (Basic version jo har jagah chalti hai)
+    box_annotator = sv.BoxAnnotator()
     label_annotator = sv.LabelAnnotator(
-        text_scale=0.4, 
-        text_thickness=1, 
-        text_padding=6,
-        text_position=sv.Position.TOP_CENTER
+        text_scale=0.4,
+        text_thickness=1,
+        text_padding=4
     )
     
-    # 4. Final Annotation
-    # Thickness ko yahan pass karte hain naye API mein
+    # 5. Drawing
+    # scene=image.copy() zaroori hai original image ko bachane ke liye
     annotated_frame = box_annotator.annotate(
         scene=image.copy(), 
         detections=detections
     )
     
-    # Labels ko draw karna
     annotated_frame = label_annotator.annotate(
         scene=annotated_frame, 
         detections=detections, 
