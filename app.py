@@ -10,6 +10,7 @@ from ultralytics import YOLO
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
 import av
 from datetime import datetime
+import supervision as sv
 
 # Page Configuration
 st.set_page_config(page_title="Ashu YOLO Enterprise Pro", layout="wide", initial_sidebar_state="expanded")
@@ -23,8 +24,27 @@ if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "page" not in st.session_state: st.session_state.page = "Model Selection"
 if "model" not in st.session_state: st.session_state.model = None
 if "secondary_model" not in st.session_state: st.session_state.secondary_model = None
-
-# ================= 2. LOGIN SYSTEM =================
+    
+# ================= 2. SLEEK PLOT HELPER =================
+def get_sleek_plot(image, model):
+    """YOLO results ko professional Supervision style mein convert karta hai."""
+    results = model(image)[0]
+    detections = sv.Detections.from_ultralytics(results)
+    
+    # Sleek Styling Configuration
+    box_annotator = sv.BoxAnnotator(thickness=2, color_lookup=sv.ColorLookup.CLASS)
+    label_annotator = sv.LabelAnnotator(
+        text_scale=0.5, 
+        border_radius=10, 
+        text_padding=8,
+        text_position=sv.Position.TOP_CENTER
+    )
+    
+    annotated_frame = box_annotator.annotate(scene=image.copy(), detections=detections)
+    annotated_frame = label_annotator.annotate(scene=annotated_frame, detections=detections)
+    return annotated_frame
+    
+# ================= 3. LOGIN SYSTEM =================
 if not st.session_state.logged_in:
     st.markdown("<h1 style='text-align:center;color:#00ffff'>🚀 Ashu YOLO Enterprise</h1>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -39,11 +59,11 @@ if not st.session_state.logged_in:
             else: st.error("Invalid Credentials")
     st.stop()
 
-# ================= 3. NAVIGATION =================
+# ================= 4. NAVIGATION =================
 pages = ["Model Selection", "Upload & Detect", "Dataset Analysis", "Webcam Detection", "Evaluation Dashboard", "Failure Cases", "Model Comparison"]
 current_page = st.sidebar.radio("🚀 Navigation", pages, index=pages.index(st.session_state.page))
 
-# ================= 4. PAGE CONTENT =================
+# ================= 5. PAGE CONTENT =================
 
 # --- MODEL SELECTION ---
 if current_page == "Model Selection":
@@ -68,7 +88,7 @@ if current_page == "Model Selection":
 
 # --- UPLOAD & DETECT (With Model Name Labels) ---
 elif current_page == "Upload & Detect":
-    st.title("🔍 Detection & Comparison Hub")
+    st.title("🔍 Sleek Detection & Comparison Hub")
     if not st.session_state.model:
         st.warning("⚠️ Load a model first!")
         st.stop()
@@ -91,13 +111,13 @@ elif current_page == "Upload & Detect":
                 while cap1.isOpened():
                     r1, f1 = cap1.read(); r2, f2 = cap2.read()
                     if not r1 or not r2: break
-                    out1.image(st.session_state.model(f1)[0].plot(), channels="BGR")
-                    out2.image(st.session_state.secondary_model(f2)[0].plot(), channels="BGR")
+                    out1.image(get_sleek_plot(f1, st.session_state.model), channels="BGR")
+                    out2.image(get_sleek_plot(f2, st.session_state.secondary_model), channels="BGR")
                 cap1.release(); cap2.release()
             else:
                 img = cv2.imread(temp_path)
-                c1.image(st.session_state.model(img)[0].plot(), channels="BGR")
-                c2.image(st.session_state.secondary_model(img)[0].plot(), channels="BGR")
+                c1.image(get_sleek_plot(img, st.session_state.model), channels="BGR")
+                c2.image(get_sleek_plot(img, st.session_state.secondary_model), channels="BGR")
         else:
             st.info(f"Using: {st.session_state.model_name}")
             if is_video:
@@ -105,14 +125,14 @@ elif current_page == "Upload & Detect":
                 while cap.isOpened():
                     ret, frame = cap.read()
                     if not ret: break
-                    out.image(st.session_state.model(frame)[0].plot(), channels="BGR")
+                    out.image(get_sleek_plot(frame, st.session_state.model), channels="BGR")
             else:
                 img = cv2.imread(temp_path)
-                st.image(st.session_state.model(img)[0].plot(), channels="BGR")
+                st.image(get_sleek_plot(img, st.session_state.model), channels="BGR")
 
 # --- DATASET ANALYSIS ---
 elif current_page == "Dataset Analysis":
-    st.title("📁 Dataset Explorer")
+    st.title("📁 Sleek Dataset Explorer")
     files = [f for f in os.listdir("datasets") if f.endswith(('.jpg', '.png'))]
     if files:
         sel_img = st.selectbox("Select Dataset Image", files)
@@ -120,11 +140,11 @@ elif current_page == "Dataset Analysis":
         
         c1, c2 = st.columns(2)
         c1.markdown(f"**🟢 Model: {st.session_state.model_name}**")
-        c1.image(st.session_state.model(img)[0].plot(), channels="BGR")
+        c1.image(get_sleek_plot(img, st.session_state.model), channels="BGR")
         
         if st.session_state.secondary_model:
             c2.markdown(f"**🔵 Model: {st.session_state.secondary_name}**")
-            c2.image(st.session_state.secondary_model(img)[0].plot(), channels="BGR")
+            c2.image(get_sleek_plot(img, st.session_state.secondary_model), channels="BGR")
     else: st.error("No images in /datasets")
 
 # --- EVALUATION DASHBOARD (Fixed Indentation) ---
