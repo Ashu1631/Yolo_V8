@@ -9,3 +9,4 @@ plotly
 pyyaml
 streamlit-webrtc
 av
+supervision
