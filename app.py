@@ -83,7 +83,8 @@ if not st.session_state.logged_in:
 
 # ================= 4. NAVIGATION (Custom Styled & Icons) =================
 
-# 1. Icons mapping (Aap icons change kar sakte hain)
+# ================= 4. FINAL NAVIGATION (Selected State Highlighted) =================
+
 nav_items = {
     "Model Selection": "📦",
     "Upload & Detect": "🔍",
@@ -94,79 +95,66 @@ nav_items = {
     "Model Comparison": "⚖️"
 }
 
-# 2. Advanced CSS for Capsule Shape, Hand Cursor & Colors
 st.markdown("""
     <style>
-        /* Radio circles ko hide karna */
+        /* 1. Radio circle ko poori tarah hide karna */
         div[role="radiogroup"] > label > div:first-child {
             display: none !important;
         }
         
-        /* Main Button Container (Unselected: RED Theme) */
+        /* 2. Unselected Buttons (Red Theme) */
         div[role="radiogroup"] > label {
-            background-color: #1E1E1E !important;
-            border: 2px solid #FF4B4B !important; /* Unselected Border RED */
-            border-radius: 30px 10px 10px 30px !important; /* Capsule Shape */
+            background-color: #1A1A1A !important;
+            border: 1px solid #FF4B4B !important;
+            border-radius: 30px 10px 10px 30px !important;
             padding: 12px 20px !important;
-            margin-bottom: 12px !important;
+            margin-bottom: 10px !important;
             cursor: pointer !important;
             transition: all 0.3s ease-in-out;
-            display: flex !important;
-            align-items: center !important;
         }
 
-        /* Hover Effect */
-        div[role="radiogroup"] > label:hover {
-            transform: scale(1.02);
-            background-color: rgba(255, 75, 75, 0.1) !important;
-        }
-
-        /* Selected Button Style (Selected: BLUE/CYAN Theme) */
+        /* 3. Selected Button (Neon Blue Glow - Yeh batayega kaunsa section active hai) */
         div[role="radiogroup"] > label[data-checked="true"] {
-            background-color: rgba(0, 255, 255, 0.1) !important;
-            border: 2px solid #00ffff !important; /* Selected Border CYAN */
-            box-shadow: 0px 0px 15px rgba(0, 255, 255, 0.3) !important;
+            background-color: #00ffff1a !important; /* Halki blue transparent background */
+            border: 2px solid #00ffff !important;  /* Bright Cyan Border */
+            box-shadow: 0px 0px 20px rgba(0, 255, 255, 0.5) !important; /* Outer Glow */
+            transform: translateX(5px) !important; /* Thoda slide effect */
         }
 
-        /* Text inside buttons */
-        div[role="radiogroup"] > label div[data-testid="stMarkdownContainer"] p {
-            font-size: 16px !important;
-            font-weight: 600 !important;
-            margin: 0 !important;
-            cursor: pointer !important;
-        }
-
-        /* Unselected Text Color */
+        /* 4. Unselected Text (Red) */
         div[role="radiogroup"] > label div[data-testid="stMarkdownContainer"] p {
             color: #FF4B4B !important;
+            font-weight: 500 !important;
+            font-size: 16px !important;
         }
 
-        /* Selected Text Color */
+        /* 5. Selected Text (Bright Cyan/Blue) */
         div[role="radiogroup"] > label[data-checked="true"] div[data-testid="stMarkdownContainer"] p {
             color: #00ffff !important;
+            font-weight: 800 !important; /* Extra bold for visibility */
+            text-shadow: 0px 0px 5px rgba(0, 255, 255, 0.5);
         }
 
-        /* Sidebar globally cursor fix */
-        [data-testid="stSidebarNav"] *, div[role="radiogroup"] > label {
-            cursor: pointer !important;
+        /* 6. Hover effect for better UX */
+        div[role="radiogroup"] > label:hover {
+            border-color: #ffffff !important;
+            background-color: #262626 !important;
         }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Radio logic with Icon integration
 pages = list(nav_items.keys())
 display_options = [f"{nav_items[p]}  {p}" for p in pages]
 
-# Page index tracking taaki refresh par current page na badle
+# Current index manage karna
 try:
     current_idx = pages.index(st.session_state.get('page', 'Model Selection'))
 except ValueError:
     current_idx = 0
 
-# Sidebar radio widget
 selected_item = st.sidebar.radio("🚀 Navigation", display_options, index=current_idx)
 
-# 4. State Update & Page Logic
+# Page logic update
 clean_page_name = selected_item.split("  ")[-1]
 if st.session_state.page != clean_page_name:
     st.session_state.page = clean_page_name
