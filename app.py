@@ -170,19 +170,42 @@ elif current_page == "Evaluation Dashboard":
         else:
             st.info("Upload 'BoxPR_curve.png' to analysis folder")
 
-# --- WEBCAM DETECTION ---
+# --- WEBCAM DETECTION (Optimized) ---
 elif current_page == "Webcam Detection":
-    st.title(f"🎥 Live Feed: {st.session_state.model_name}")
-    RTC_CONFIG = RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]})
+    st.title(f"🎥 Live Feed: {st.session_state.get('model_name', 'Model')}")
+    
+    # Google ke free STUN servers jo firewall bypass karne mein madad karte hain
+    RTC_CONFIG = RTCConfiguration(
+        {"iceServers": [{"urls": ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]}]}
+    )
     
     class VideoProcessor(VideoProcessorBase):
+        def __init__(self):
+            self.model = st.session_state.model
+
         def recv(self, frame):
             img = frame.to_ndarray(format="bgr24")
-            res = st.session_state.model(img)
-            return av.VideoFrame.from_ndarray(res[0].plot(), format="bgr24")
+            
+            # Inference logic
+            if self.model:
+                results = self.model(img, conf=0.5) # Confidence threshold set kiya
+                annotated_frame = results[0].plot()
+            else:
+                annotated_frame = img # Agar model nahi hai toh normal frame
+                
+            return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
 
     if st.session_state.model:
-        webrtc_streamer(key="live", video_processor_factory=VideoProcessor, rtc_configuration=RTC_CONFIG)
+        webrtc_streamer(
+            key="yolo-live",
+            mode=WebRtcMode.SENDRECV, # Ensure mode is SENDRECV
+            rtc_configuration=RTC_CONFIG,
+            video_processor_factory=VideoProcessor,
+            media_stream_constraints={"video": True, "audio": False}, # Sirf video chahiye
+            async_processing=True,
+        )
+    else:
+        st.warning("⚠️ Please load a model from the 'Model Selection' page first!")
 
 # --- MODEL COMPARISON (10 GRAPHS ADDED) ---
 elif current_page == "Model Comparison":
