@@ -81,53 +81,99 @@ if not st.session_state.logged_in:
             else: st.error("Invalid Credentials")
     st.stop()
 
-# ================= 4. NAVIGATION =================
-# ================= 4. NAVIGATION (Custom Styled) =================
+# ================= 4. NAVIGATION (Custom Styled & Icons) =================
 
-# CSS to hide radio circles and apply Hand Cursor + Colors
+# 1. Icons mapping (Aap icons change kar sakte hain)
+nav_items = {
+    "Model Selection": "📦",
+    "Upload & Detect": "🔍",
+    "Dataset Analysis": "📁",
+    "Webcam Detection": "🎥",
+    "Evaluation Dashboard": "📊",
+    "Failure Cases": "❌",
+    "Model Comparison": "⚖️"
+}
+
+# 2. Advanced CSS for Capsule Shape, Hand Cursor & Colors
 st.markdown("""
     <style>
-        /* Radio circle ko hide karne ke liye */
-        div[data-testid="stMarkdownContainer"] + div[role="radiogroup"] > label > div:first-child {
+        /* Radio circles ko hide karna */
+        div[role="radiogroup"] > label > div:first-child {
             display: none !important;
         }
         
-        /* Har navigation item ka default (Unselected) style */
+        /* Main Button Container (Unselected: RED Theme) */
         div[role="radiogroup"] > label {
-            background-color: transparent;
-            color: #FF4B4B !important; /* Unselected color: RED */
-            padding: 10px 20px;
-            border-radius: 10px;
+            background-color: #1E1E1E !important;
+            border: 2px solid #FF4B4B !important; /* Unselected Border RED */
+            border-radius: 30px 10px 10px 30px !important; /* Capsule Shape */
+            padding: 12px 20px !important;
+            margin-bottom: 12px !important;
             cursor: pointer !important;
-            transition: 0.3s;
-            display: block;
-            width: 100%;
+            transition: all 0.3s ease-in-out;
+            display: flex !important;
+            align-items: center !important;
         }
 
-        /* Mouse hover karne par cursor change */
+        /* Hover Effect */
         div[role="radiogroup"] > label:hover {
-            background-color: rgba(255, 75, 75, 0.1);
+            transform: scale(1.02);
+            background-color: rgba(255, 75, 75, 0.1) !important;
         }
 
-        /* Selected item ka style */
+        /* Selected Button Style (Selected: BLUE/CYAN Theme) */
         div[role="radiogroup"] > label[data-checked="true"] {
-            color: #00ffff !important; /* Selected color: CYAN/BLUE */
-            font-weight: bold;
-            border-left: 5px solid #00ffff;
-            background-color: rgba(0, 255, 255, 0.1);
+            background-color: rgba(0, 255, 255, 0.1) !important;
+            border: 2px solid #00ffff !important; /* Selected Border CYAN */
+            box-shadow: 0px 0px 15px rgba(0, 255, 255, 0.3) !important;
         }
-        
-        /* Sidebar container mein cursor fix */
-        [data-testid="stSidebarNav"] * {
+
+        /* Text inside buttons */
+        div[role="radiogroup"] > label div[data-testid="stMarkdownContainer"] p {
+            font-size: 16px !important;
+            font-weight: 600 !important;
+            margin: 0 !important;
+            cursor: pointer !important;
+        }
+
+        /* Unselected Text Color */
+        div[role="radiogroup"] > label div[data-testid="stMarkdownContainer"] p {
+            color: #FF4B4B !important;
+        }
+
+        /* Selected Text Color */
+        div[role="radiogroup"] > label[data-checked="true"] div[data-testid="stMarkdownContainer"] p {
+            color: #00ffff !important;
+        }
+
+        /* Sidebar globally cursor fix */
+        [data-testid="stSidebarNav"] *, div[role="radiogroup"] > label {
             cursor: pointer !important;
         }
     </style>
     """, unsafe_allow_html=True)
 
-pages = ["Model Selection", "Upload & Detect", "Dataset Analysis", "Webcam Detection", "Evaluation Dashboard", "Failure Cases", "Model Comparison"]
+# 3. Radio logic with Icon integration
+pages = list(nav_items.keys())
+display_options = [f"{nav_items[p]}  {p}" for p in pages]
+
+# Page index tracking taaki refresh par current page na badle
+try:
+    current_idx = pages.index(st.session_state.get('page', 'Model Selection'))
+except ValueError:
+    current_idx = 0
 
 # Sidebar radio widget
-current_page = st.sidebar.radio("🚀 Navigation", pages, index=pages.index(st.session_state.page))
+selected_item = st.sidebar.radio("🚀 Navigation", display_options, index=current_idx)
+
+# 4. State Update & Page Logic
+clean_page_name = selected_item.split("  ")[-1]
+if st.session_state.page != clean_page_name:
+    st.session_state.page = clean_page_name
+    st.rerun()
+
+current_page = st.session_state.page
+
 # ================= 5. PAGE CONTENT =================
 
 # --- MODEL SELECTION ---
