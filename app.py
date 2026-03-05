@@ -27,47 +27,46 @@ if "secondary_model" not in st.session_state: st.session_state.secondary_model =
     
 # ================= 2. SLEEK PLOT HELPER =================
 def get_sleek_plot(image, model):
-    """YOLO Tracking with Sleek UI, Percentages & IDs for Videos."""
+    """YOLO Tracking with fixed Supervision 0.18+ API."""
     
-    # 1. Prediction with Tracking (persist=True se objects yaad rakhe jate hain)
-    # Hum confidence 0.3 set kar rahe hain taaki flickering kam ho
-    results = model.track(image, persist=True, conf=0.3)[0]
+    # 1. Prediction/Tracking Logic
+    try:
+        results = model.track(image, persist=True, conf=0.3, verbose=False)[0]
+    except Exception:
+        results = model.predict(image, conf=0.3, verbose=False)[0]
+        
     detections = sv.Detections.from_ultralytics(results)
     
-    # 2. Custom Labels Logic
+    # 2. Smart labels (Name + % + ID)
     labels = []
     for i in range(len(detections)):
         class_id = detections.class_id[i]
-        confidence = detections.confidence[i]
+        conf = detections.confidence[i]
         name = model.names[class_id]
-        
-        # Agar video hai aur tracker_id available hai
+        label = f"{name} {conf*100:.0f}%"
         if detections.tracker_id is not None:
-            tracker_id = detections.tracker_id[i]
-            label = f"#{tracker_id} {name} {confidence*100:.0f}%"
-        else:
-            # Sirf image ke liye ID nahi dikhayenge
-            label = f"{name} {confidence*100:.0f}%"
+            label = f"#{detections.tracker_id[i]} {label}"
         labels.append(label)
 
-    # 3. Premium Annotators Setup
-    # CornerAnnotator use karenge for even more "Sleek" look (Optional)
-    # Filhal BoxAnnotator ko hi ultra-clean banate hain
-    box_annotator = sv.BoxAnnotator(
-        thickness=2,
-        color_lookup=sv.ColorLookup.CLASS
-    )
+    # 3. Annotators Setup (Fixed for TypeError)
+    # Naye version mein 'thickness' yahan nahi dalte
+    box_annotator = sv.BoxAnnotator(color_lookup=sv.ColorLookup.CLASS)
     
     label_annotator = sv.LabelAnnotator(
-        text_scale=0.45,       # Thoda chota font zyada professional lagta hai
-        text_thickness=1,      # Thick text font ko kharab karta hai, 1 is best for clarity
-        border_radius=6,       # Modern rounded corners
+        text_scale=0.4, 
+        text_thickness=1, 
         text_padding=6,
         text_position=sv.Position.TOP_CENTER
     )
     
     # 4. Final Annotation
-    annotated_frame = box_annotator.annotate(scene=image.copy(), detections=detections)
+    # Thickness ko yahan pass karte hain naye API mein
+    annotated_frame = box_annotator.annotate(
+        scene=image.copy(), 
+        detections=detections
+    )
+    
+    # Labels ko draw karna
     annotated_frame = label_annotator.annotate(
         scene=annotated_frame, 
         detections=detections, 
