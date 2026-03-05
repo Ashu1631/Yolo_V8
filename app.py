@@ -95,30 +95,26 @@ nav_items = {
 
 st.markdown("""
     <style>
-        /* 1. Standard radio components ko hide karein */
-        div[role="radiogroup"] > label > div:first-child {
-            display: none !important;
-        }
+        /* 1. Default radio buttons hide karna */
+        div[role="radiogroup"] > label > div:first-child { display: none !important; }
         
-        /* 2. Button Base (Image 2 jaisa Rectangular/Capsule look) */
+        /* 2. Unselected Buttons (Muted Red Border - Image 3/6 Style) */
         div[role="radiogroup"] > label {
-            background-color: #262730 !important; /* Dark neutral */
-            border: 2px solid #FF4B4B !important; /* Muted Red Border */
-            border-radius: 10px 30px 30px 10px !important;
-            padding: 10px 15px !important;
-            margin-bottom: 12px !important;
-            cursor: pointer !important;
-            display: flex !important;
-            align-items: center !important;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background-color: #1A1A1A !important;
+            border: 2px solid #FF4B4B !important;
+            border-radius: 12px 30px 30px 12px !important; /* Capsule Shape */
+            padding: 10px 20px !important;
+            margin-bottom: 10px !important;
+            transition: all 0.3s ease;
         }
 
-        /* 3. SELECTED STATE: Ekdam clear highlight (Image 3 ke liye fix) */
+        /* 3. !!! SELECTED STATE (Blue Highlight - Image 2 logic) !!! */
+        /* Jab option select hoga, tab uska background poora Cyan ho jayega */
         div[role="radiogroup"] > label[data-checked="true"] {
             background-color: #00ffff !important; /* Bright Cyan Background */
             border: 2px solid #ffffff !important;
             box-shadow: 0px 0px 20px rgba(0, 255, 255, 0.6) !important;
-            transform: scale(1.05) translateX(10px);
+            transform: scale(1.05) translateX(5px) !important;
         }
 
         /* 4. Text Styling */
@@ -128,20 +124,14 @@ st.markdown("""
             margin: 0 !important;
         }
 
-        /* Selected Text: Dark Black (Contrast ke liye jab background cyan ho) */
+        /* Selected Text: BLACK (Takki Cyan par saaf dikhe) */
         div[role="radiogroup"] > label[data-checked="true"] div[data-testid="stMarkdownContainer"] p {
             color: #000000 !important;
         }
 
-        /* Unselected Text: Bright Red */
+        /* Unselected Text: RED */
         div[role="radiogroup"] > label div[data-testid="stMarkdownContainer"] p {
             color: #FF4B4B !important;
-        }
-
-        /* Hover Effect */
-        div[role="radiogroup"] > label:hover {
-            border-color: #ffffff !important;
-            background-color: #31333F !important;
         }
     </style>
     """, unsafe_allow_html=True)
