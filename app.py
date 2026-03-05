@@ -172,45 +172,65 @@ elif current_page == "Dataset Analysis":
 elif current_page == "Evaluation Dashboard":
     st.title("📊 Training Performance Dashboard")
     
-    # Pehle se maujood sections
+    # --- SECTION 1: TOP SUMMARY (CSV Se Metrics) ---
+    if os.path.exists("analysis/results.csv"):
+        df = pd.read_csv("analysis/results.csv")
+        df.columns = df.columns.str.strip() # Extra spaces hatane ke liye
+        last_results = df.iloc[-1]
+        
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("mAP@.5", f"{last_results.get('metrics/mAP50(B)', 0):.3f}")
+        m2.metric("mAP@.5:.95", f"{last_results.get('metrics/mAP50-95(B)', 0):.3f}")
+        m3.metric("Precision", f"{last_results.get('metrics/precision(B)', 0):.3f}")
+        m4.metric("Recall", f"{last_results.get('metrics/recall(B)', 0):.3f}")
+        st.divider()
+
+    # --- SECTION 2: CORE PERFORMANCE ---
     col_old1, col_old2 = st.columns(2)
     with col_old1:
         st.markdown("### 📉 Training Results Matrix")
-        if os.path.exists("analysis/results.png"): st.image("analysis/results.png")
+        if os.path.exists("analysis/results.png"): 
+            st.image("analysis/results.png", use_container_width=True)
     with col_old2:
         st.markdown("### 🎯 Confusion Matrix")
-        if os.path.exists("analysis/confusion_matrix.png"): st.image("analysis/confusion_matrix.png")
+        if os.path.exists("analysis/confusion_matrix.png"): 
+            st.image("analysis/confusion_matrix.png", use_container_width=True)
 
     st.divider()
     st.subheader("🧪 Additional Detailed Metrics")
 
-    # Aapke naye 3 graphs
+    # --- SECTION 3: DETAILED CURVES (Fixed Labels) ---
     col_new1, col_new2, col_new3 = st.columns(3)
     
     with col_new1:
         st.markdown("### 📉 Loss Curve")
-        # Ensure 'loss_curve.png' exists in analysis folder
-        if os.path.exists("analysis/map_curve.png"):
-            st.image("analysis/map_curve.png", caption="Train vs Val Box Loss")
+        # Fix: Loss section mein loss_curve file
+        if os.path.exists("analysis/loss_curve.png"):
+            st.image("analysis/loss_curve.png", caption="Train vs Val Box/Class Loss")
         else:
-            st.info("Upload 'map_curve.png' to analysis folder")
+            st.info("File 'loss_curve.png' not found")
 
     with col_new2:
-        st.markdown("### 📈 Training mAP Curve")
-        # Ensure 'map_curve.png' exists in analysis folder
-        if os.path.exists("analysis/loss_curve.png"):
-            st.image("analysis/loss_curve.png", caption="mAP@0.5 and mAP@0.5:0.95")
+        st.markdown("### 📈 mAP Curve")
+        # Fix: mAP section mein map_curve file
+        if os.path.exists("analysis/map_curve.png"):
+            st.image("analysis/map_curve.png", caption="mAP@0.5 and mAP@0.5:0.95")
         else:
-            st.info("Upload 'loss_curve.png' to analysis folder")
+            st.info("File 'map_curve.png' not found")
 
     with col_new3:
-        st.markdown("### 🎯 Precision & Recall Curve")
-        # Ensure 'BoxPR_curve.png' exists in analysis folder
+        st.markdown("### 🎯 Precision-Recall")
         if os.path.exists("analysis/BoxPR_curve.png"):
-            st.image("analysis/BoxPR_curve.png", caption="Precision and Recall over Epochs")
+            st.image("analysis/BoxPR_curve.png", caption="PR Curve over Epochs")
+        elif os.path.exists("analysis/F1_curve.png"): # Fallback agar PR nahi hai
+            st.image("analysis/F1_curve.png", caption="F1-Confidence Curve")
         else:
-            st.info("Upload 'BoxPR_curve.png' to analysis folder")
+            st.info("Upload 'BoxPR_curve.png' or 'F1_curve.png'")
 
+    # --- SECTION 4: RAW DATA ---
+    with st.expander("📂 View Training Logs (CSV Data)"):
+        if os.path.exists("analysis/results.csv"):
+            st.dataframe(df, use_container_width=True)
 # --- WEBCAM DETECTION (Optimized) ---
 elif current_page == "Webcam Detection":
     st.title(f"🎥 Live Feed: {st.session_state.get('model_name', 'Model')}")
