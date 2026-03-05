@@ -27,21 +27,35 @@ if "secondary_model" not in st.session_state: st.session_state.secondary_model =
     
 # ================= 2. SLEEK PLOT HELPER =================
 def get_sleek_plot(image, model):
-    """YOLO results ko professional Supervision style mein convert karta hai."""
-    results = model(image)[0]
+    """YOLO results ko professional Supervision style mein convert karta hai, full colors ke saath."""
+    
+    # --- FIXED: Image ko explicitly BGR color space mein copy karein taaki B&W na ho ---
+    color_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) # Streamlit needs RGB for direct plot but we process in BGR
+    # Since we use channels="BGR" in st.image later, we process here in BGR only, ensuring no grayscale confusion
+    bgr_image = cv2.cvtColor(color_image, cv2.COLOR_RGB2BGR) # Back to BGR for annotation
+
+    results = model(bgr_image)[0]
     detections = sv.Detections.from_ultralytics(results)
     
-    # Sleek Styling Configuration
-    box_annotator = sv.BoxAnnotator(thickness=2, color_lookup=sv.ColorLookup.CLASS)
+    # Sleek Styling Configuration (Colors explicitly CLASS based for premium look)
+    box_annotator = sv.BoxAnnotator(
+        thickness=2, 
+        color=sv.ColorPalette.DEFAULT, # Uses varied colors for different objects
+        color_lookup=sv.ColorLookup.CLASS # Fixes colors to specific classes
+    )
+    
     label_annotator = sv.LabelAnnotator(
         text_scale=0.5, 
         border_radius=10, 
         text_padding=8,
-        text_position=sv.Position.TOP_CENTER
+        text_position=sv.Position.TOP_CENTER,
+        text_thickness=2
     )
     
-    annotated_frame = box_annotator.annotate(scene=image.copy(), detections=detections)
+    # --- Draw on BGR Image ---
+    annotated_frame = box_annotator.annotate(scene=bgr_image, detections=detections)
     annotated_frame = label_annotator.annotate(scene=annotated_frame, detections=detections)
+    
     return annotated_frame
     
 # ================= 3. LOGIN SYSTEM =================
