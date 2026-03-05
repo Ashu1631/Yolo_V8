@@ -82,9 +82,52 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ================= 4. NAVIGATION =================
-pages = ["Model Selection", "Upload & Detect", "Dataset Analysis", "Webcam Detection", "Evaluation Dashboard", "Failure Cases", "Model Comparison"]
-current_page = st.sidebar.radio("🚀 Navigation", pages, index=pages.index(st.session_state.page))
+# ================= 4. NAVIGATION (Custom Styled) =================
 
+# CSS to hide radio circles and apply Hand Cursor + Colors
+st.markdown("""
+    <style>
+        /* Radio circle ko hide karne ke liye */
+        div[data-testid="stMarkdownContainer"] + div[role="radiogroup"] > label > div:first-child {
+            display: none !important;
+        }
+        
+        /* Har navigation item ka default (Unselected) style */
+        div[role="radiogroup"] > label {
+            background-color: transparent;
+            color: #FF4B4B !important; /* Unselected color: RED */
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer !important;
+            transition: 0.3s;
+            display: block;
+            width: 100%;
+        }
+
+        /* Mouse hover karne par cursor change */
+        div[role="radiogroup"] > label:hover {
+            background-color: rgba(255, 75, 75, 0.1);
+        }
+
+        /* Selected item ka style */
+        div[role="radiogroup"] > label[data-checked="true"] {
+            color: #00ffff !important; /* Selected color: CYAN/BLUE */
+            font-weight: bold;
+            border-left: 5px solid #00ffff;
+            background-color: rgba(0, 255, 255, 0.1);
+        }
+        
+        /* Sidebar container mein cursor fix */
+        [data-testid="stSidebarNav"] * {
+            cursor: pointer !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+pages = ["Model Selection", "Upload & Detect", "Dataset Analysis", "Webcam Detection", "Evaluation Dashboard", "Failure Cases", "Model Comparison"]
+
+# Sidebar radio widget
+current_page = st.sidebar.radio("🚀 Navigation", pages, index=pages.index(st.session_state.page))
 # ================= 5. PAGE CONTENT =================
 
 # --- MODEL SELECTION ---
