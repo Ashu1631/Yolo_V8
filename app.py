@@ -27,42 +27,45 @@ if "secondary_model" not in st.session_state: st.session_state.secondary_model =
     
 # ================= 2. SLEEK PLOT HELPER =================
 def get_sleek_plot(image, model):
-    """YOLO results with fixed Sleek Style for Streamlit Cloud."""
+    """YOLO results with Thin Boxes, Sleek Fonts, and Tracking IDs."""
     
-    # 1. Prediction (Tracking enabled)
-    # Note: Agar sirf images hain toh model.predict use karein, video ke liye .track
-    results = model.track(image, persist=True, conf=0.3)[0]
+    # Try Tracking (Needs 'lapx'), Fallback to Predict
+    try:
+        results = model.track(image, persist=True, conf=0.3, verbose=False)[0]
+    except Exception:
+        results = model.predict(image, conf=0.3, verbose=False)[0]
+        
     detections = sv.Detections.from_ultralytics(results)
     
-    # 2. Smart labels with scores percentage
+    # Create Sleek Labels (Name + % + ID if available)
     labels = []
-    if detections.tracker_id is not None:
-        labels = [
-            f"#{tid} {model.names[cid]} {conf*100:.0f}%"
-            for cid, conf, tid in zip(detections.class_id, detections.confidence, detections.tracker_id)
-        ]
-    else:
-        labels = [
-            f"{model.names[cid]} {conf*100:.0f}%"
-            for cid, conf in zip(detections.class_id, detections.confidence)
-        ]
-    
-    # 3. Box Annotator (Thin & Professional)
+    for i in range(len(detections)):
+        class_id = detections.class_id[i]
+        conf = detections.confidence[i]
+        name = model.names[class_id]
+        label = f"{name} {conf*100:.0f}%"
+        
+        # Add Tracker ID for videos
+        if detections.tracker_id is not None:
+            tid = detections.tracker_id[i]
+            label = f"#{tid} {label}"
+        labels.append(label)
+
+    # Styling: Thin Boxes (Thickness=1)
     box_annotator = sv.BoxAnnotator(
         thickness=1, 
         color_lookup=sv.ColorLookup.CLASS
     )
     
-    # 4. Label Annotator (Fixed: problematic parameters removed)
+    # Styling: Sleek Labels (Thin fonts)
     label_annotator = sv.LabelAnnotator(
-        text_scale=0.4,       # Chota aur sleek font
-        text_thickness=1,     # Patla font (Better clarity)
-        text_padding=6,       # Professional spacing
-        border_radius=8,      # Rounded corners
+        text_scale=0.4, 
+        text_thickness=1, 
+        text_padding=6,
+        border_radius=8,
         text_position=sv.Position.TOP_CENTER
     )
     
-    # 5. Annotation process
     annotated_frame = box_annotator.annotate(scene=image.copy(), detections=detections)
     annotated_frame = label_annotator.annotate(
         scene=annotated_frame, 
