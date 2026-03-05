@@ -244,40 +244,39 @@ elif current_page == "Evaluation Dashboard":
 
 # --- WEBCAM DETECTION (Optimized) ---
 elif current_page == "Webcam Detection":
-    # Header logic
-    model_display_name = st.session_state.get('model_name', 'Model')
-    st.title(f"🎥 Live Feed: {model_display_name}")
+    st.title(f"🎥 Live Feed: {st.session_state.get('model_name', 'Model')}")
     
-    # 1. RTC Configuration (STUN Servers)
+    # STUN servers connection issues ko fix karne ke liye
     RTC_CONFIG = RTCConfiguration(
-        {"iceServers": [{"urls": ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]}]}
+        {"iceServers": [
+            {"urls": ["stun:stun.l.google.com:19302"]},
+            {"urls": ["stun:stun1.l.google.com:19302"]}
+        ]}
     )
     
-    # 2. Video Processor Class
     class VideoProcessor(VideoProcessorBase):
         def __init__(self):
-            # Session state se model uthayein
+            # Model ko session state se safely uthana
             self.model = st.session_state.get('model', None)
 
         def recv(self, frame):
-            # Frame ko ndarray mein convert karein
             img = frame.to_ndarray(format="bgr24")
             
-            # Inference logic
+            # Agar model loaded hai toh prediction karein
             if self.model is not None:
-                # YOLO Inference
                 results = self.model(img, conf=0.5) 
                 annotated_frame = results[0].plot()
             else:
-                annotated_frame = img
+                # Agar model nahi hai toh simple text dikhayein frame par
+                annotated_frame = cv2.putText(img, "Model Not Loaded", (50, 50), 
+                                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
                 
-            # Wapas VideoFrame mein convert karein
             return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
 
-    # 3. Streamer logic
-    if st.session_state.get('model') is not None:
+    # Check karein ki model load hua hai ya nahi
+    if 'model' in st.session_state and st.session_state.model is not None:
         webrtc_streamer(
-            key="yolo-live",
+            key="yolo-live-detection",
             mode=WebRtcMode.SENDRECV,
             rtc_configuration=RTC_CONFIG,
             video_processor_factory=VideoProcessor,
@@ -285,7 +284,10 @@ elif current_page == "Webcam Detection":
             async_processing=True,
         )
     else:
-        st.warning("⚠️ Please load a model from the 'Model Selection' page first!")
+        st.error("❌ Model load nahi mila! Please 'Model Selection' page par jaakar model select karein.")
+        if st.button("Go to Model Selection"):
+            st.session_state.current_page = "Model Selection" # Agar aapne navigation logic set kiya hai
+            st.rerun()
 
 # --- MODEL COMPARISON (10 GRAPHS ADDED) ---
 elif current_page == "Model Comparison":
