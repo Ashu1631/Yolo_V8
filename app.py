@@ -41,7 +41,7 @@ def get_sleek_plot(image, model):
         text_thickness=1,
         # 'TOP_CENTER' ki jagah 'CENTER' ya 'BOTTOM_CENTER' use karein
         # Isse naam box ke andar ya niche dikhega, upar nahi katega
-        text_position=sv.Position.CENTER 
+        text_position=sv.Position.LEFT_BOTTOM_Align
     )
     
     # Boxes ke liye
