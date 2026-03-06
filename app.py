@@ -35,11 +35,11 @@ def get_sleek_plot(image, model):
     results = model(image, conf=0.3)[0]
     detections = sv.Detections.from_ultralytics(results)
     
-    # Label Annotator ko customize karein
     label_annotator = sv.LabelAnnotator(
-    text_scale=0.5,
-    text_thickness=1,
-    text_position=sv.Position.CENTER  
+    text_scale=0.6,        
+    text_thickness=2,      
+    text_position=sv.Position.TOP_LEFT,
+    text_padding=10        
 )
     
     # Boxes ke liye
