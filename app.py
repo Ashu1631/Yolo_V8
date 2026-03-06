@@ -58,56 +58,61 @@ def get_sleek_plot(image, model):
 if not st.session_state.logged_in:
     st.markdown("""
         <style>
+        /* 1. Upar shift karne ke liye padding kam ki hai */
         .stApp {
-            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), 
-                        url('https://images.unsplash.com/photo-1726403846137-3c7ae90afedc?q=80&w=1332&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), 
+                        url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1920&q=80');
             background-size: cover;
-            background-attachment: fixed;
         }
+
+        /* 2. Page Title: Automatically theme color (Cyan) pick karega */
         .main-title {
-            color: #00ffff; text-align: center; font-size: 3.5rem; font-weight: 800;
-            text-shadow: 0 0 20px rgba(0,255,255,0.7); margin-top: 50px;
-            margin-bottom: 20px;
+            color: #00ffff; 
+            text-align: center; 
+            font-size: 3rem; 
+            font-weight: 800;
+            margin-top: -50px; /* Isse title upar shift ho jayega */
+            text-shadow: 0 0 15px rgba(0,255,255,0.5);
         }
-        /* 🟢 Dark Green Button Styling */
+
+        /* 3. Gradient Border Remove karke clean Cyan border rakhi hai */
+        .stTextInput > div > div {
+            border: 1px solid #00ffff !important; 
+            background-color: rgba(0,0,0,0.5) !important;
+            border-radius: 8px !important;
+        }
+
+        /* Sign In Button spacing */
         div.stButton > button {
-            background-color: #006400 !important; 
-            color: white !important;
-            border: 1px solid #00ff00 !important;
-            font-weight: bold;
-            height: 3em;
-            margin-top: 20px;
-        }
-        /* Inputs ko thoda saaf dikhane ke liye shadow */
-        .stTextInput input {
-            background-color: rgba(255, 255, 255, 0.1) !important;
-            color: white !important;
-            border: 1px solid #00ffff !important;
+            margin-top: 10px;
+            background-color: #006400 !important;
+            border: none !important; /* Gradient border removed */
         }
         </style>
     """, unsafe_allow_html=True)
 
+    # Title ko thoda upar lane ke liye container
+    st.markdown("<div style='margin-top: -30px;'>", unsafe_allow_html=True)
     st.markdown("<h1 class='main-title'>🚀 Ashu YOLO Enterprise</h1>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns([1, 1.5, 1])
+    col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        # --- 1. Transparent Image (Directly on Background) ---
-        st.image("https://static.vecteezy.com/system/resources/thumbnails/010/851/451/small/abstract-technological-background-with-various-technological-elements-structure-pattern-technology-backdrop-png.png", use_container_width=True)
+        # GIF size thoda chhota karke upar shift kiya
+        st.markdown(f'<img src="https://miro.medium.com/0*xCVxg99gmWcOmSC2.gif" style="width:180px; display:block; margin:auto; margin-top:-20px; filter:drop-shadow(0 0 10px #00ffff);">', unsafe_allow_html=True)
         
-        st.markdown("<h2 style='color:white; text-align:left- align;'>🔐 Secure Login</h2>", unsafe_allow_html=True)
+        st.markdown("<h3 style='color:white; text-align:center; margin-bottom:20px;'>🔐 Secure Login</h3>", unsafe_allow_html=True)
         
-        # --- 2. Input Fields with Placeholders ---
+        # Form inputs
         user = st.text_input("Username", placeholder="Enter Username", label_visibility="collapsed")
         pw = st.text_input("Password", type="password", placeholder="Enter Password", label_visibility="collapsed")
         
-        # --- 3. Dark Green Sign In Button ---
         if st.button("Sign In", use_container_width=True):
             if user == "admin" and pw == "ashu@1234":
                 st.session_state.logged_in = True
                 st.rerun()
             else: 
                 st.error("Access Denied!")
-                
     st.stop()
 
 # ================= 4. NAVIGATION (Custom Styled & Icons) =================
