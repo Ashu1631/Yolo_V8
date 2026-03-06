@@ -37,7 +37,7 @@ def get_sleek_plot(image, model):
     
     label_annotator = sv.LabelAnnotator(
     text_scale=0.6,        
-    text_thickness=2,      
+    text_thickness=4,      
     text_position=sv.Position.TOP_LEFT,
     text_padding=10        
 )
