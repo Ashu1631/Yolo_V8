@@ -11,4 +11,3 @@ streamlit-webrtc
 av
 supervision
 lapx
-libgl1-mesa-glx
