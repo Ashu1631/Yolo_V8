@@ -365,37 +365,48 @@ elif current_page == "Webcam Detection":
         st.error("❌ Model load nahi mila!")
 
 elif current_page == "Model Comparison":
-
     st.title("⚖️ Advanced Benchmarking (10-Graph Matrix)")
 
-    m1 = st.session_state.model_name if st.session_state.model else "Best.pt"
+    # ML PNG Box
+    st.markdown("""
+        <div style="background: rgba(0, 255, 255, 0.05); border: 1px solid #00ffff; border-radius: 15px; padding: 15px; text-align: center; margin-bottom: 25px;">
+            <img src="https://img.icons8.com/illustrations/external-pack-flat-icons-maxicons/512/external-machine-learning-artificial-intelligence-pack-flat-icons-maxicons.png" width="300">
+            <h3 style="color: #00ffff; margin-top: 10px;">Neural Network Performance Analytics</h3>
+        </div>
+    """, unsafe_allow_html=True)
 
-    m2 = st.session_state.secondary_name if st.session_state.secondary_model else "YOLOv8n.pt"
-
-    df_bench = pd.DataFrame({"Model": [m1, m2, "Baseline"], "Precision": [0.88, 0.72, 0.65], "Recall": [0.84, 0.70, 0.60], "mAP50": [0.91, 0.75, 0.68], "Latency_ms": [15, 8, 5], "F1": [0.86, 0.71, 0.62], "Params_M": [8.5, 3.2, 1.0], "mAP50-95": [0.65, 0.45, 0.35], "Throughput": [65, 120, 200]})
+    # ... (Dataframe Logic same rahegi) ...
 
     c1, c2 = st.columns(2)
 
     with c1:
+        st.info("📊 1. Precision Analysis (**Bar Chart**)")
+        st.plotly_chart(px.bar(df_bench, x="Model", y="Precision", color="Model", template="plotly_dark"), use_container_width=True)
 
-        st.plotly_chart(px.bar(df_bench, x="Model", y="Precision", color="Model"), use_container_width=True)
-
+        st.info("📈 2. Inference Latency (**Line Graph**)")
         st.plotly_chart(px.line(df_bench, x="Model", y="Latency_ms", markers=True), use_container_width=True)
 
+        st.info("📉 3. mAP@50 Confidence (**Area Map**)")
         st.plotly_chart(px.area(df_bench, x="Model", y="mAP50"), use_container_width=True)
 
+        st.info("🧪 4. Detection Pipeline (**Funnel Chart**)")
         st.plotly_chart(px.funnel(dict(number=[100, 80, 60, 40], stage=["Input", "Boxes", "Conf", "Final"]), x='number', y='stage'), use_container_width=True)
 
+        st.info("🌌 5. Accuracy vs Params (**Scatter Plot**)")
         st.plotly_chart(px.scatter(df_bench, x="Params_M", y="mAP50", size="Latency_ms", color="Model"), use_container_width=True)
 
     with c2:
-
+        st.info("🍕 6. Recall Distribution (**Donut/Pie Chart**)")
         st.plotly_chart(px.pie(df_bench, names="Model", values="Recall", hole=0.3), use_container_width=True)
 
+        st.info("🧮 7. Metric Correlation (**Heatmap**)")
         st.plotly_chart(px.imshow(df_bench.corr(numeric_only=True), text_auto=True), use_container_width=True)
 
+        st.info("🌊 8. Precision Gain/Loss (**Waterfall Chart**)")
         st.plotly_chart(go.Figure(go.Waterfall(x=df_bench["Model"], y=[0.68, 0.07, 0.16], measure=["relative"]*3)), use_container_width=True)
 
+        st.info("🏆 9. F1-Score Comparison (**Color Bar Chart**)")
         st.plotly_chart(px.bar(df_bench, x="Model", y="F1", color="F1"), use_container_width=True)
 
+        st.info("🏎️ 10. Efficiency Matrix (**Bubble Scatter**)")
         st.plotly_chart(px.scatter(df_bench, x="Throughput", y="mAP50-95", size="Params_M", color="Model"), use_container_width=True)
