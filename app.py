@@ -37,12 +37,10 @@ def get_sleek_plot(image, model):
     
     # Label Annotator ko customize karein
     label_annotator = sv.LabelAnnotator(
-        text_scale=0.5,
-        text_thickness=1,
-        # 'TOP_CENTER' ki jagah 'CENTER' ya 'BOTTOM_CENTER' use karein
-        # Isse naam box ke andar ya niche dikhega, upar nahi katega
-        text_position=sv.Position.LEFT_BOTTOM_Align
-    )
+    text_scale=0.5,
+    text_thickness=1,
+    text_position=sv.Position.CENTER  
+)
     
     # Boxes ke liye
     box_annotator = sv.BoxAnnotator()
