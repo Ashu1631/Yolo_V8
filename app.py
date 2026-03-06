@@ -60,7 +60,7 @@ if not st.session_state.logged_in:
         <style>
         .stApp {
             background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), 
-                        url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1920&q=80');
+                        url('https://medium.com/datatobiz/top-6-leading-machine-learning-companies-in-india-in-2022-9c9a69c4ad26');
             background-size: cover;
             background-attachment: fixed;
         }
