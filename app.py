@@ -61,7 +61,7 @@ if not st.session_state.logged_in:
         /* 1. Upar shift karne ke liye padding kam ki hai */
         .stApp {
             background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), 
-                        url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1920&q=80');
+                        url('https://images.unsplash.com/photo-1726403846137-3c7ae90afedc?q=80&w=1332&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
             background-size: cover;
         }
 
@@ -99,7 +99,7 @@ if not st.session_state.logged_in:
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
         # GIF size thoda chhota karke upar shift kiya
-        st.markdown(f'<img src="https://miro.medium.com/0*xCVxg99gmWcOmSC2.gif" style="width:180px; display:block; margin:auto; margin-top:-20px; filter:drop-shadow(0 0 10px #00ffff);">', unsafe_allow_html=True)
+        st.markdown(f'<img src="https://static.vecteezy.com/system/resources/thumbnails/010/851/451/small/abstract-technological-background-with-various-technological-elements-structure-pattern-technology-backdrop-png.png" style="width:180px; display:block; margin:auto; margin-top:-20px; filter:drop-shadow(0 0 10px #00ffff);">', unsafe_allow_html=True)
         
         st.markdown("<h3 style='color:white; text-align:center; margin-bottom:20px;'>🔐 Secure Login</h3>", unsafe_allow_html=True)
         
