@@ -162,7 +162,7 @@ elif current_page == "Upload & Detect":
     if not st.session_state.model:
         st.warning("⚠️ Load a model first!")
         st.stop()
-
+    
     uploaded = st.file_uploader("Upload Image or Video", type=["jpg", "png", "jpeg", "mp4"])
     
     if uploaded:
@@ -170,40 +170,69 @@ elif current_page == "Upload & Detect":
         with open(temp_path, "wb") as f: f.write(uploaded.getbuffer())
         is_video = uploaded.name.endswith(".mp4")
 
-        if is_video:
-            # FPS Graph Setup
-            st.subheader("⚡ Live Performance Graph (FPS)")
-            fps_chart = st.line_chart(np.zeros(20)) # Initial empty graph
-            fps_history = []
+        # --- FPS Graph Container ---
+        st.subheader("📊 Real-time Inference Speed (FPS)")
+        fps_chart_placeholder = st.empty() 
+        fps_history = []
 
-            cap = cv2.VideoCapture(temp_path)
-            out = st.empty()
+        if st.session_state.secondary_model:
+            c1, c2 = st.columns(2)
+            c1.info(f"🟢 Model A: {st.session_state.model_name}")
+            c2.info(f"🔵 Model B: {st.session_state.secondary_name}")
+            out1, out2 = c1.empty(), c2.empty()
             
-            while cap.isOpened():
+            if is_video:
+                cap1, cap2 = cv2.VideoCapture(temp_path), cv2.VideoCapture(temp_path)
+                while cap1.isOpened():
+                    t1 = time.time()
+                    r1, f1 = cap1.read(); r2, f2 = cap2.read()
+                    if not r1 or not r2: break
+                    
+                    res1 = get_sleek_plot(f1, st.session_state.model)
+                    res2 = get_sleek_plot(f2, st.session_state.secondary_model)
+                    
+                    fps = 1.0 / (time.time() - t1)
+                    fps_history.append(fps)
+                    fps_chart_placeholder.line_chart(fps_history[-50:]) # Line Graph update
+                    
+                    out1.image(res1, channels="BGR", caption=f"A Speed: {fps:.2f} FPS")
+                    out2.image(res2, channels="BGR", caption=f"B Speed: {fps:.2f} FPS")
+                cap1.release(); cap2.release()
+            else:
+                img = cv2.imread(temp_path)
                 t1 = time.time()
-                ret, frame = cap.read()
-                if not ret: break
+                res1 = get_sleek_plot(img, st.session_state.model)
+                fps_a = 1.0 / (time.time() - t1)
                 
-                processed = get_sleek_plot(frame, st.session_state.model)
-                
-                # FPS Calculation
                 t2 = time.time()
-                curr_fps = 1.0 / (t2 - t1)
-                fps_history.append(curr_fps)
+                res2 = get_sleek_plot(img, st.session_state.secondary_model)
+                fps_b = 1.0 / (time.time() - t2)
                 
-                # Update Graph (Keep last 50 points)
-                fps_chart.line_chart(fps_history[-50:])
+                # Bar Chart for Image Comparison
+                st.bar_chart(pd.DataFrame({"Model": ["Model A", "Model B"], "FPS": [fps_a, fps_b]}).set_index("Model"))
                 
-                out.image(processed, channels="BGR")
-            cap.release()
+                c1.image(res1, channels="BGR")
+                c2.image(res2, channels="BGR")
         else:
-            # For Image: Simple Metric
-            img = cv2.imread(temp_path)
-            t1 = time.time()
-            res = get_sleek_plot(img, st.session_state.model)
-            fps = 1.0 / (time.time() - t1)
-            st.metric("Inference Speed", f"{fps:.2f} FPS")
-            st.image(res, channels="BGR")
+            # Single Model Logic (With Graph)
+            out = st.empty()
+            if is_video:
+                cap = cv2.VideoCapture(temp_path)
+                while cap.isOpened():
+                    t1 = time.time()
+                    ret, frame = cap.read()
+                    if not ret: break
+                    processed = get_sleek_plot(frame, st.session_state.model)
+                    fps = 1.0 / (time.time() - t1)
+                    fps_history.append(fps)
+                    fps_chart_placeholder.line_chart(fps_history[-50:])
+                    out.image(processed, channels="BGR")
+            else:
+                img = cv2.imread(temp_path)
+                t1 = time.time()
+                processed = get_sleek_plot(img, st.session_state.model)
+                st.metric("Speed", f"{1.0/(time.time()-t1):.2f} FPS")
+                st.image(processed, channels="BGR")
 
 elif current_page == "Dataset Analysis":
     st.title("📁 Sleek Dataset Explorer")
@@ -212,28 +241,34 @@ elif current_page == "Dataset Analysis":
         sel_img = st.selectbox("Select Dataset Image", files)
         img = cv2.imread(os.path.join("datasets", sel_img))
         
-        # Calculate Speed
+        c1, c2 = st.columns(2)
+        
+        # Model A Timing
         t1 = time.time()
         res_a = get_sleek_plot(img, st.session_state.model)
         fps_a = 1.0 / (time.time() - t1)
         
-        fps_data = {st.session_state.model_name: fps_a}
+        chart_data = {"Model": [st.session_state.model_name], "FPS": [fps_a]}
         
         if st.session_state.secondary_model:
+            # Model B Timing
             t2 = time.time()
             res_b = get_sleek_plot(img, st.session_state.secondary_model)
             fps_b = 1.0 / (time.time() - t2)
-            fps_data[st.session_state.secondary_name] = fps_b
+            chart_data["Model"].append(st.session_state.secondary_name)
+            chart_data["FPS"].append(fps_b)
 
-        # Display FPS Graph
-        st.bar_chart(pd.DataFrame(fps_data.items(), columns=['Model', 'FPS']).set_index('Model'))
+        # FPS Comparison Graph
+        st.subheader("🚀 Speed Comparison Graph")
+        st.bar_chart(pd.DataFrame(chart_data).set_index("Model"))
 
-        c1, c2 = st.columns(2)
-        c1.image(res_a, channels="BGR", caption=f"Model A: {fps_a:.2f} FPS")
+        # Side-by-Side Images
+        c1.markdown(f"**🟢 Model A** ({fps_a:.2f} FPS)")
+        c1.image(res_a, channels="BGR")
         if st.session_state.secondary_model:
-            c2.image(res_b, channels="BGR", caption=f"Model B: {fps_b:.2f} FPS")
-    else:
-        st.error("No images in /datasets")
+            c2.markdown(f"**🔵 Model B** ({fps_b:.2f} FPS)")
+            c2.image(res_b, channels="BGR")
+    else: st.error("No images in /datasets")
         
 elif current_page == "Evaluation Dashboard":
     st.title("📊 4. Evaluation & Results")
