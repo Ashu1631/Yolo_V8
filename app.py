@@ -17,6 +17,7 @@ import plotly.graph_objects as go
 
 # Page Configuration
 st.set_page_config(page_title="Ashu YOLO Enterprise Pro", layout="wide", initial_sidebar_state="expanded")
+st.markdown('<img src="https://cdni.iconscout.com/illustration/premium/thumb/visual-computing-illustration-download-in-svg-png-gif-file-formats--artificial-intelligence-machine-learning-cloud-ai-pack-technology-illustrations-5381816.png" class="login-logo">', unsafe_allow_html=True)
 
 # ================= 1. DIRECTORY SETUP =================
 DIRS = ["outputs/images", "outputs/videos", "failure_cases", "analysis", "datasets"]
