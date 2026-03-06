@@ -26,19 +26,26 @@ if "page" not in st.session_state: st.session_state.page = "Model Selection"
 if "model" not in st.session_state: st.session_state.model = None
 if "secondary_model" not in st.session_state: st.session_state.secondary_model = None
     
-# ================= 2. FONT & DETECTION FIX =================
 def get_sleek_plot(image, model):
     results = model(image, conf=0.3)[0]
     detections = sv.Detections.from_ultralytics(results)
     labels = [f"{model.names[class_id]} {confidence*100:.0f}%" for class_id, confidence in zip(detections.class_id, detections.confidence)]
     
-    box_annotator = sv.BoxAnnotator(thickness=2)
+    # --- Dynamic Font Logic ---
+    
+    # Image ki width ke hisaab se font scale calculate karna (e.g., 1920px image pe bada font)
+    img_width = image.shape[1]
+    dynamic_scale = max(0.6, img_width / 1000) # Base scale 0.6, badi images pe automatically badhega
+    dynamic_thickness = max(1, int(img_width / 500)) # Badi image pe zyada bold
+    
+    box_annotator = sv.BoxAnnotator(thickness=dynamic_thickness)
+    
     label_annotator = sv.LabelAnnotator(
-        text_scale=0.8,        # Crystal Clear Font
-        text_thickness=2, 
-        text_padding=12, 
+        text_scale=dynamic_scale,      # Ab ye fix nahi, dynamic hai!
+        text_thickness=dynamic_thickness, 
+        text_padding=int(10 * dynamic_scale), 
         text_color=sv.Color.WHITE, 
-        border_radius=4
+        border_radius=5
     )
     
     annotated_frame = box_annotator.annotate(scene=image.copy(), detections=detections)
