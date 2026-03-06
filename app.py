@@ -28,7 +28,7 @@ if "secondary_model" not in st.session_state: st.session_state.secondary_model =
     
 # ================= 2. SLEEK PLOT HELPER =================
 def get_sleek_plot(image, model):
-    """Images aur Videos dono ke liye best detection font aur style."""
+    """Images aur Videos dono ke liye High-Visibility font aur premium style."""
     results = model(image, conf=0.3)[0]
     detections = sv.Detections.from_ultralytics(results)
     
@@ -37,27 +37,27 @@ def get_sleek_plot(image, model):
         for class_id, confidence in zip(detections.class_id, detections.confidence)
     ]
     
-    # 1. Box Annotator: Line ki motai 2 rakhi hai taaki clean dikhe
+    # 1. Box Annotator: Clean and solid bounding boxes
     box_annotator = sv.BoxAnnotator(
-        thickness=2
+        thickness=3  # Thoda mota kiya taaki door se dikhe
     )
     
-    # 2. Label Annotator: Font ko bold aur readable banaya gaya hai
+    # 2. Label Annotator: Font ko Bold aur bada kiya gaya hai readable hone ke liye
     label_annotator = sv.LabelAnnotator(
-        text_scale=0.6,             # Font size thoda aur bada kiya (Visible on all screens)
-        text_thickness=2,           # Font ko bold (mota) kiya taaki blur na ho
-        text_padding=8,             # Background box ke andar thoda gap
-        text_color=sv.Color.WHITE,  # Text White rakha hai
-        border_radius=4             # Labels ke corners ko thoda round kiya
+        text_scale=0.8,             # Font size bada kiya (Standard for 1080p/720p)
+        text_thickness=2,           # Font ko bold rakha hai
+        text_padding=10,            # Text background ko thoda 'breathable' banaya
+        text_color=sv.Color.WHITE,  # White text for high contrast
+        border_radius=6             # Smooth premium corners
     )
     
-    # Annotate Frame
+    # Scene par boxes draw karna
     annotated_frame = box_annotator.annotate(
         scene=image.copy(), 
         detections=detections
     )
     
-    # Label drawing with high contrast
+    # Scene par labels draw karna
     annotated_frame = label_annotator.annotate(
         scene=annotated_frame, 
         detections=detections, 
