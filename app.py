@@ -194,8 +194,14 @@ elif current_page == "Upload & Detect":
         with open(temp_path, "wb") as f: f.write(uploaded.getbuffer())
         is_video = uploaded.name.endswith(".mp4")
 
-        # --- 1. PHOTO COMPARE (Side by Side) ---
+        # --- 1. PHOTO COMPARE (Side by Side with Model Labels) ---
         c1, c2 = st.columns(2)
+        
+        # Model A Header
+        c1.markdown(f"<h3 style='text-align: center; color: #00ffff;'>🚀 Model A: {st.session_state.model_name}</h3>", unsafe_allow_html=True)
+        # Model B Header
+        c2.markdown(f"<h3 style='text-align: center; color: #ff4b4b;'>🔥 Model B: {st.session_state.get('secondary_name', 'Secondary')}</h3>", unsafe_allow_html=True)
+        
         out1, out2 = c1.empty(), c2.empty()
         
         # --- 2. SCORE / CALCULATOR VALUES ---
@@ -210,7 +216,6 @@ elif current_page == "Upload & Detect":
         st.subheader("📊 Performance Timeline (FPS Graph)")
         fps_chart = st.empty()
         
-        # History for separate tracking
         history_a = []
         history_b = []
 
@@ -219,14 +224,12 @@ elif current_page == "Upload & Detect":
             cap2 = cv2.VideoCapture(temp_path)
             
             while cap1.isOpened():
-                # Model A Processing
                 t_start_a = time.time()
                 r1, f1 = cap1.read()
                 if not r1: break
                 res1 = get_sleek_plot(f1, st.session_state.model)
                 fps_a = 1.0 / (time.time() - t_start_a)
                 
-                # Model B Processing (yolo8n or secondary)
                 t_start_b = time.time()
                 r2, f2 = cap2.read()
                 if not r2: break
@@ -234,14 +237,14 @@ elif current_page == "Upload & Detect":
                 fps_b = 1.0 / (time.time() - t_start_b)
 
                 # Update Images
-                out1.image(res1, channels="BGR", caption=f"Primary: {st.session_state.model_name}")
-                out2.image(res2, channels="BGR", caption=f"Secondary: {st.session_state.get('secondary_name', 'N/A')}")
+                out1.image(res1, channels="BGR")
+                out2.image(res2, channels="BGR")
 
                 # Update Calculator Values
                 val_a.metric(f"🚀 {st.session_state.model_name}", f"{fps_a:.2f} FPS")
-                val_b.metric(f"🚀 {st.session_state.get('secondary_name', 'Model B')}", f"{fps_b:.2f} FPS")
+                val_b.metric(f"🔥 {st.session_state.get('secondary_name', 'Model B')}", f"{fps_b:.2f} FPS")
 
-                # Update Graph with separate columns
+                # Update Graph
                 history_a.append(fps_a)
                 history_b.append(fps_b)
                 df_graph = pd.DataFrame({
@@ -264,8 +267,8 @@ elif current_page == "Upload & Detect":
 
             out1.image(res1, channels="BGR")
             out2.image(res2, channels="BGR")
-            val_a.metric(st.session_state.model_name, f"{fps_a:.2f} FPS")
-            val_b.metric(st.session_state.secondary_name, f"{fps_b:.2f} FPS")
+            val_a.metric(f"🚀 {st.session_state.model_name}", f"{fps_a:.2f} FPS")
+            val_b.metric(f"🔥 {st.session_state.secondary_name}", f"{fps_b:.2f} FPS")
             fps_chart.line_chart(pd.DataFrame({"FPS": [fps_a, fps_b]}, index=[st.session_state.model_name, st.session_state.secondary_name]))
 
 elif current_page == "Dataset Analysis":
@@ -275,8 +278,10 @@ elif current_page == "Dataset Analysis":
         sel_img = st.selectbox("Select Dataset Image", files)
         img = cv2.imread(os.path.join("datasets", sel_img))
         
-        # 1. PHOTO COMPARE
+        # 1. PHOTO COMPARE with Visual Titles
         c1, c2 = st.columns(2)
+        c1.markdown(f"<h3 style='text-align: center; color: #00ffff;'>🚀 Model A: {st.session_state.model_name}</h3>", unsafe_allow_html=True)
+        c2.markdown(f"<h3 style='text-align: center; color: #ff4b4b;'>🔥 Model B: {st.session_state.secondary_name}</h3>", unsafe_allow_html=True)
         
         t1 = time.time()
         res_a = get_sleek_plot(img, st.session_state.model)
@@ -286,14 +291,14 @@ elif current_page == "Dataset Analysis":
         res_b = get_sleek_plot(img, st.session_state.secondary_model)
         fps_b = 1.0 / (time.time() - t2)
 
-        c1.image(res_a, channels="BGR", caption=st.session_state.model_name)
-        c2.image(res_b, channels="BGR", caption=st.session_state.secondary_name)
+        c1.image(res_a, channels="BGR")
+        c2.image(res_b, channels="BGR")
 
         # 2. SCORE CALCULATOR
         st.divider()
         m1, m2 = st.columns(2)
-        m1.metric(f"Score {st.session_state.model_name}", f"{fps_a:.2f} FPS")
-        m2.metric(f"Score {st.session_state.secondary_name}", f"{fps_b:.2f} FPS")
+        m1.metric(f"🚀 Score {st.session_state.model_name}", f"{fps_a:.2f} FPS")
+        m2.metric(f"🔥 Score {st.session_state.secondary_name}", f"{fps_b:.2f} FPS")
 
         # 3. GRAPH
         st.divider()
