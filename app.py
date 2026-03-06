@@ -34,7 +34,7 @@ def get_sleek_plot(image, model):
     
     box_annotator = sv.BoxAnnotator(thickness=2)
     label_annotator = sv.LabelAnnotator(
-        text_scale=0.8,        # Bold aur bada font
+        text_scale=0.8,        # Bold aur bada font (Crystal Clear)
         text_thickness=2, 
         text_padding=10, 
         text_color=sv.Color.WHITE, 
