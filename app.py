@@ -118,7 +118,7 @@ st.markdown("""
             cursor: pointer;
         }
         div[role="radiogroup"] > label p {
-            color: #000000 !important;
+            color: #FFFFFF !important;
             font-size: 16px !important;
             font-weight: 700 !important;
             margin: 0 !important;
