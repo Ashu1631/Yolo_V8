@@ -372,7 +372,6 @@ elif current_page == "Model Comparison":
     # --- 🤖 Machine Learning PNG/Box Section ---
     st.markdown("""
         <div style="background: rgba(0, 255, 255, 0.05); border: 2px solid #00ffff; border-radius: 15px; padding: 20px; text-align: center; margin-bottom: 30px;">
-            <img src="https://img.icons8.com/illustrations/external-pack-flat-icons-maxicons/512/external-machine-learning-artificial-intelligence-pack-flat-icons-maxicons.png" width="200">
             <h3 style="color: #00ffff; margin-top: 15px;">Neural Network Analytics Hub</h3>
         </div>
     """, unsafe_allow_html=True)
