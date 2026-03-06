@@ -68,17 +68,59 @@ def get_sleek_plot(image, model):
     
 # ================= 3. LOGIN SYSTEM =================
 if not st.session_state.logged_in:
-    st.markdown("<h1 style='text-align:center;color:#00ffff'>🚀 Ashu YOLO Enterprise</h1>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 2, 1])
+    # Futuristic Background CSS
+    st.markdown("""
+        <style>
+        .stApp {
+            background: radial-gradient(circle at center, #001529 0%, #000000 100%);
+        }
+        .login-header {
+            background: linear-gradient(90deg, #00ffff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 3.5rem !important;
+            font-weight: 900 !important;
+            text-align: center;
+            text-shadow: 2px 2px 20px rgba(0, 255, 255, 0.5);
+            margin-bottom: 0px;
+        }
+        .tech-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
+            opacity: 0.1;
+            z-index: -1;
+        }
+        div.stButton > button {
+            background: linear-gradient(45deg, #00ffff, #0055ff) !important;
+            color: white !important;
+            font-weight: bold !important;
+            border: none !important;
+            transition: 0.3s;
+        }
+        div.stButton > button:hover {
+            box-shadow: 0px 0px 15px #00ffff !important;
+            transform: scale(1.02);
+        }
+        </style>
+        <div class="tech-bg"></div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<h1 class='login-header'>🚀 Ashu YOLO Enterprise</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:#00ffff; font-family:monospace;'>Next-Gen AI Vision Solutions</p>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
-        st.title("🔐 Login")
+        st.markdown("<div style='background:rgba(255,255,255,0.05); padding:30px; border-radius:15px; border:1px solid rgba(0,255,255,0.2)'>", unsafe_allow_html=True)
+        st.title("🔐 Secure Access")
         user = st.text_input("Username")
         pw = st.text_input("Password", type="password")
-        if st.button("Login", use_container_width=True):
+        if st.button("AUTHENTICATE SYSTEM", use_container_width=True):
             if user == "admin" and pw == "ashu@1234":
                 st.session_state.logged_in = True
                 st.rerun()
-            else: st.error("Invalid Credentials")
+            else: st.error("Access Denied: Invalid Credentials")
+        st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
 # ================= 4. NAVIGATION (Custom Styled & Icons) =================
