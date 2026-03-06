@@ -94,7 +94,7 @@ if not st.session_state.logged_in:
         # --- 1. Transparent Image (Directly on Background) ---
         st.image("https://raw.githubusercontent.com/ultralytics/assets/main/yolov8/banner-yolov8.png", use_container_width=True)
         
-        st.markdown("<h2 style='color:white; text-align:center;'>🔐 Secure Login</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='color:white; text-align:left- align;'>🔐 Secure Login</h2>", unsafe_allow_html=True)
         
         # --- 2. Input Fields with Placeholders ---
         user = st.text_input("Username", placeholder="Enter Username", label_visibility="collapsed")
