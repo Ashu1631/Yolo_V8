@@ -331,4 +331,4 @@ elif current_page == "Model Comparison":
 
         st.plotly_chart(px.bar(df_bench, x="Model", y="F1", color="F1"), use_container_width=True)
 
-        st.plotly_chart(px.scatter(df_bench, x="Throughput", y="mAP50-95", size="Params_M", color="Model"), use_container_width=True) use_container_width=True)
+        st.plotly_chart(px.scatter(df_bench, x="Throughput", y="mAP50-95", size="Params_M", color="Model"), use_container_width=True)
