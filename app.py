@@ -28,13 +28,21 @@ if "secondary_model" not in st.session_state: st.session_state.secondary_model =
     
 # ================= 2. FONT & DETECTION FIX =================
 def get_sleek_plot(image, model):
+    """Images aur Videos ke liye High-Visibility font aur premium style."""
     results = model(image, conf=0.3)[0]
     detections = sv.Detections.from_ultralytics(results)
-    labels = [f"{model.names[class_id]} {confidence*100:.0f}%" for class_id, confidence in zip(detections.class_id, detections.confidence)]
     
+    labels = [
+        f"{model.names[class_id]} {confidence*100:.0f}%"
+        for class_id, confidence in zip(detections.class_id, detections.confidence)
+    ]
+    
+    # Bounding Box
     box_annotator = sv.BoxAnnotator(thickness=2)
+    
+    # Label: Font ko bold aur bada rakha hai (0.8 scale)
     label_annotator = sv.LabelAnnotator(
-        text_scale=0.8,        # Bold aur bada font (Crystal Clear)
+        text_scale=0.8, 
         text_thickness=2, 
         text_padding=10, 
         text_color=sv.Color.WHITE, 
