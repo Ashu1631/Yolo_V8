@@ -26,7 +26,7 @@ if "page" not in st.session_state: st.session_state.page = "Model Selection"
 if "model" not in st.session_state: st.session_state.model = None
 if "secondary_model" not in st.session_state: st.session_state.secondary_model = None
     
-# ================= 2. PROFESSIONAL PLOT HELPER =================
+# ================= 2. FONT & DETECTION FIX =================
 def get_sleek_plot(image, model):
     results = model(image, conf=0.3)[0]
     detections = sv.Detections.from_ultralytics(results)
@@ -35,16 +35,16 @@ def get_sleek_plot(image, model):
         for class_id, confidence in zip(detections.class_id, detections.confidence)
     ]
     
-    # Bounding Box: Thickness 2 for sleek look
+    # Bounding Box: Sleek 2px thickness
     box_annotator = sv.BoxAnnotator(thickness=2)
     
-    # Label: High contrast font and padding
+    # Label: High Visibility Font (Readable on all screens)
     label_annotator = sv.LabelAnnotator(
-        text_scale=0.7,             # Perfectly readable size
+        text_scale=0.8,             # Font size bada aur saaf
         text_thickness=2,           # Bold for clarity
-        text_padding=10,            # Clean background box
-        text_color=sv.Color.WHITE,  # High contrast
-        border_radius=4
+        text_padding=10,            # High contrast background
+        text_color=sv.Color.WHITE,  # Crystal clear white text
+        border_radius=5
     )
     
     annotated_frame = box_annotator.annotate(scene=image.copy(), detections=detections)
@@ -56,24 +56,26 @@ if not st.session_state.logged_in:
     st.markdown("""
         <style>
         .stApp {
-            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.9)), 
-                        url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1920&q=80');
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), 
+                        url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1920&q=80');
             background-size: cover;
+            background-attachment: fixed;
         }
         .main-title {
             color: #00ffff;
             text-align: center;
             font-size: 3.5rem;
             font-weight: 800;
-            text-shadow: 0 0 15px rgba(0,255,255,0.6);
-            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(0,255,255,0.7);
+            margin-top: 50px;
         }
-        .login-box {
-            background: rgba(255,255,255,0.05);
+        .login-card {
+            background: rgba(0, 20, 40, 0.6);
             padding: 40px;
             border-radius: 20px;
-            border: 1px solid rgba(0,255,255,0.3);
-            backdrop-filter: blur(10px);
+            border: 2px solid #00ffff;
+            backdrop-filter: blur(15px);
+            box-shadow: 0 0 30px rgba(0,255,255,0.2);
         }
         </style>
     """, unsafe_allow_html=True)
@@ -82,15 +84,15 @@ if not st.session_state.logged_in:
     
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
-        st.markdown("<div class='login-box'>", unsafe_allow_html=True)
-        st.title("🔐 Secure Login")
+        st.markdown("<div class='login-card'>", unsafe_allow_html=True)
+        st.title("🔐 Secure Authentication")
         user = st.text_input("Username")
         pw = st.text_input("Password", type="password")
-        if st.button("AUTHENTICATE SYSTEM", use_container_width=True):
+        if st.button("ACTIVATE SYSTEM", use_container_width=True):
             if user == "admin" and pw == "ashu@1234":
                 st.session_state.logged_in = True
                 st.rerun()
-            else: st.error("Access Denied!")
+            else: st.error("Access Denied: Invalid Credentials")
         st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
