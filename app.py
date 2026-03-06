@@ -92,7 +92,7 @@ if not st.session_state.logged_in:
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
         # --- 1. Transparent Image (Directly on Background) ---
-        st.image("https://raw.githubusercontent.com/ultralytics/assets/main/yolov8/banner-yolov8.png", use_container_width=True)
+        st.image("https://miro.medium.com/0*xCVxg99gmWcOmSC2.gif", use_container_width=True)
         
         st.markdown("<h2 style='color:white; text-align:left- align;'>🔐 Secure Login</h2>", unsafe_allow_html=True)
         
