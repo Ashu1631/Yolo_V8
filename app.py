@@ -67,24 +67,22 @@ if not st.session_state.logged_in:
         .main-title {
             color: #00ffff; text-align: center; font-size: 3.5rem; font-weight: 800;
             text-shadow: 0 0 20px rgba(0,255,255,0.7); margin-top: 50px;
-        }
-        .login-card {
-            background: rgba(0, 20, 40, 0.6); padding: 40px; border-radius: 20px;
-            border: 2px solid #00ffff; backdrop-filter: blur(15px);
-            text-align: center;
+            margin-bottom: 20px;
         }
         /* 🟢 Dark Green Button Styling */
         div.stButton > button {
-            background-color: #006400 !important; /* Dark Green */
+            background-color: #006400 !important; 
             color: white !important;
             border: 1px solid #00ff00 !important;
             font-weight: bold;
             height: 3em;
-            transition: 0.3s;
+            margin-top: 20px;
         }
-        div.stButton > button:hover {
-            background-color: #008000 !important; /* Slightly lighter on hover */
-            border: 1px solid #ffffff !important;
+        /* Inputs ko thoda saaf dikhane ke liye shadow */
+        .stTextInput input {
+            background-color: rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+            border: 1px solid #00ffff !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -93,16 +91,12 @@ if not st.session_state.logged_in:
     
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
-        # Card Start
-        st.markdown("<div class='login-card'>", unsafe_allow_html=True)
-        
-        # --- 1. Transparent Image (Secure Login ke upar) ---
+        # --- 1. Transparent Image (Directly on Background) ---
         st.image("https://raw.githubusercontent.com/ultralytics/assets/main/yolov8/banner-yolov8.png", use_container_width=True)
         
-        st.markdown("<h2 style='color:white;'>🔐 Secure Login</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='color:white; text-align:center;'>🔐 Secure Login</h2>", unsafe_allow_html=True)
         
         # --- 2. Input Fields with Placeholders ---
-        # label_visibility="collapsed" use kiya hai taaki sirf placeholder dikhe
         user = st.text_input("Username", placeholder="Enter Username", label_visibility="collapsed")
         pw = st.text_input("Password", type="password", placeholder="Enter Password", label_visibility="collapsed")
         
@@ -113,8 +107,7 @@ if not st.session_state.logged_in:
                 st.rerun()
             else: 
                 st.error("Access Denied!")
-        
-        st.markdown("</div>", unsafe_allow_html=True)
+                
     st.stop()
 
 # ================= 4. NAVIGATION (Custom Styled & Icons) =================
