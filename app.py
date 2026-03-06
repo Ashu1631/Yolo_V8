@@ -109,8 +109,8 @@ st.markdown("""
             display: none !important; 
         }
         div[role="radiogroup"] > label {
-            background-color: #1A1A1A !important;
-            border: 2px solid #FF4B4B !important;
+            background-color: #2E6F40 !important;
+            border: 2px solid #000000 !important;
             border-radius: 12px 30px 30px 12px !important;
             padding: 10px 20px !important;
             margin-bottom: 10px !important;
@@ -118,14 +118,14 @@ st.markdown("""
             cursor: pointer;
         }
         div[role="radiogroup"] > label p {
-            color: #FF4B4B !important;
+            color: #000000 !important;
             font-size: 16px !important;
             font-weight: 700 !important;
             margin: 0 !important;
         }
         div[role="radiogroup"] > label:has(input:checked) {
-            background-color: #00ffff !important;
-            border: 2px solid #ffffff !important;
+            background-color: #800000 !important;
+            border: 2px solid #000000 !important;
             box-shadow: 0px 0px 20px rgba(0, 255, 255, 0.6) !important;
             transform: scale(1.05) translateX(5px) !important;
         }
