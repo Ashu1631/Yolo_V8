@@ -28,21 +28,13 @@ if "secondary_model" not in st.session_state: st.session_state.secondary_model =
     
 # ================= 2. FONT & DETECTION FIX =================
 def get_sleek_plot(image, model):
-    """Images aur Videos ke liye High-Visibility font aur premium style."""
     results = model(image, conf=0.3)[0]
     detections = sv.Detections.from_ultralytics(results)
+    labels = [f"{model.names[class_id]} {confidence*100:.0f}%" for class_id, confidence in zip(detections.class_id, detections.confidence)]
     
-    labels = [
-        f"{model.names[class_id]} {confidence*100:.0f}%"
-        for class_id, confidence in zip(detections.class_id, detections.confidence)
-    ]
-    
-    # Bounding Box
     box_annotator = sv.BoxAnnotator(thickness=2)
-    
-    # Label: Font ko bold aur bada rakha hai (0.8 scale)
     label_annotator = sv.LabelAnnotator(
-        text_scale=0.8, 
+        text_scale=0.8,        # Crystal Clear Font
         text_thickness=2, 
         text_padding=10, 
         text_color=sv.Color.WHITE, 
@@ -64,19 +56,12 @@ if not st.session_state.logged_in:
             background-attachment: fixed;
         }
         .main-title {
-            color: #00ffff;
-            text-align: center;
-            font-size: 3.5rem;
-            font-weight: 800;
-            text-shadow: 0 0 20px rgba(0,255,255,0.7);
-            margin-top: 50px;
+            color: #00ffff; text-align: center; font-size: 3.5rem; font-weight: 800;
+            text-shadow: 0 0 20px rgba(0,255,255,0.7); margin-top: 50px;
         }
         .login-card {
-            background: rgba(0, 20, 40, 0.6);
-            padding: 40px;
-            border-radius: 20px;
-            border: 2px solid #00ffff;
-            backdrop-filter: blur(15px);
+            background: rgba(0, 20, 40, 0.6); padding: 40px; border-radius: 20px;
+            border: 2px solid #00ffff; backdrop-filter: blur(15px);
         }
         </style>
     """, unsafe_allow_html=True)
