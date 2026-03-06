@@ -55,35 +55,47 @@ def get_sleek_plot(image, model):
 
 # ================= 3. LOGIN SYSTEM (TECH BACKGROUND) =================
 if not st.session_state.logged_in:
-st.markdown("""
-    <style>
-    /* Tech Background Animation */
-    .stApp {
-        background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.8)), 
-                    url('https://images.unsplash.com/photo-1518770660439-4636190af475?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80');
-        background-size: cover;
-        background-attachment: fixed;
-    }
+    st.markdown("""
+        <style>
+        .stApp {
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.8)), 
+                        url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1920&q=80');
+            background-size: cover;
+            background-attachment: fixed;
+        }
+        .main-title {
+            color: #00ffff;
+            text-align: center;
+            font-size: 3.5rem;
+            font-weight: 800;
+            text-shadow: 0 0 20px rgba(0,255,255,0.7);
+            margin-top: 50px;
+        }
+        .login-card {
+            background: rgba(0, 20, 40, 0.6);
+            padding: 40px;
+            border-radius: 20px;
+            border: 2px solid #00ffff;
+            backdrop-filter: blur(15px);
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<h1 class='main-title'>🚀 Ashu YOLO Enterprise</h1>", unsafe_allow_html=True)
     
-    .login-header {
-        font-family: 'Orbitron', sans-serif;
-        color: #00ffff;
-        text-align: center;
-        font-size: 50px;
-        font-weight: bold;
-        text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
-        margin-bottom: 20px;
-    }
-    
-    /* Input box styling */
-    .stTextInput > div > div > input {
-        background-color: rgba(255, 255, 255, 0.1) !important;
-        color: #00ffff !important;
-        border: 1px solid #00ffff !important;
-    }
-    </style>
-    <h1 class='login-header'>🚀 Ashu YOLO Enterprise</h1>
-""", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 1.5, 1])
+    with col2:
+        st.markdown("<div class='login-card'>", unsafe_allow_html=True)
+        st.title("🔐 Secure Login")
+        user = st.text_input("Username")
+        pw = st.text_input("Password", type="password")
+        if st.button("AUTHENTICATE SYSTEM", use_container_width=True):
+            if user == "admin" and pw == "ashu@1234":
+                st.session_state.logged_in = True
+                st.rerun()
+            else: st.error("Access Denied!")
+        st.markdown("</div>", unsafe_allow_html=True)
+    st.stop()
 
 # ================= 4. NAVIGATION (Custom Styled & Icons) =================
 
