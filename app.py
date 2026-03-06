@@ -29,29 +29,27 @@ if "model" not in st.session_state: st.session_state.model = None
 if "secondary_model" not in st.session_state: st.session_state.secondary_model = None
     
 def get_sleek_plot(image, model):
+    if model is None:
+        return image
+        
     results = model(image, conf=0.3)[0]
     detections = sv.Detections.from_ultralytics(results)
-    labels = [f"{model.names[class_id]} {confidence*100:.0f}%" for class_id, confidence in zip(detections.class_id, detections.confidence)]
     
-    # --- Dynamic Font Logic ---
-    
-    # Image ki width ke hisaab se font scale calculate karna (e.g., 1920px image pe bada font)
-    img_width = image.shape[1]
-    dynamic_scale = max(0.6, img_width / 1000) # Base scale 0.6, badi images pe automatically badhega
-    dynamic_thickness = max(1, int(img_width / 500)) # Badi image pe zyada bold
-    
-    box_annotator = sv.BoxAnnotator(thickness=dynamic_thickness)
-    
+    # Label Annotator ko customize karein
     label_annotator = sv.LabelAnnotator(
-        text_scale=dynamic_scale,      # Ab ye fix nahi, dynamic hai!
-        text_thickness=dynamic_thickness, 
-        text_padding=int(10 * dynamic_scale), 
-        text_color=sv.Color.WHITE, 
-        border_radius=5
+        text_scale=0.5,
+        text_thickness=1,
+        # 'TOP_CENTER' ki jagah 'CENTER' ya 'BOTTOM_CENTER' use karein
+        # Isse naam box ke andar ya niche dikhega, upar nahi katega
+        text_position=sv.Position.CENTER 
     )
     
+    # Boxes ke liye
+    box_annotator = sv.BoxAnnotator()
+    
     annotated_frame = box_annotator.annotate(scene=image.copy(), detections=detections)
-    annotated_frame = label_annotator.annotate(scene=annotated_frame, detections=detections, labels=labels)
+    annotated_frame = label_annotator.annotate(scene=annotated_frame, detections=detections)
+    
     return annotated_frame
 
 # ================= 3. LOGIN SYSTEM (TECH BACKGROUND) =================
