@@ -95,43 +95,47 @@ nav_items = {
 
 st.markdown("""
     <style>
-        /* 1. Default radio buttons hide karna */
-        div[role="radiogroup"] > label > div:first-child { display: none !important; }
+        /* 1. Default radio circle ko hide karna */
+        div[role="radiogroup"] > label > div:first-child { 
+            display: none !important; 
+        }
         
-        /* 2. Unselected Buttons (Muted Red Border - Image 3/6 Style) */
+        /* 2. Base Style for all Labels (Buttons) */
         div[role="radiogroup"] > label {
             background-color: #1A1A1A !important;
-            border: 2px solid #FF4B4B !important;
-            border-radius: 12px 30px 30px 12px !important; /* Capsule Shape */
+            border: 2px solid #FF4B4B !important; /* Default Red Border */
+            border-radius: 12px 30px 30px 12px !important;
             padding: 10px 20px !important;
             margin-bottom: 10px !important;
             transition: all 0.3s ease;
+            cursor: pointer;
         }
 
-        /* 3. !!! SELECTED STATE (Blue Highlight - Image 2 logic) !!! */
-        /* Jab option select hoga, tab uska background poora Cyan ho jayega */
-        div[role="radiogroup"] > label[data-checked="true"] {
-            background-color: #00ffff !important; /* Bright Cyan Background */
-            border: 2px solid #ffffff !important;
-            box-shadow: 0px 0px 20px rgba(0, 255, 255, 0.6) !important;
-            transform: scale(1.05) translateX(5px) !important;
-        }
-
-        /* 4. Text Styling */
-        div[role="radiogroup"] > label div[data-testid="stMarkdownContainer"] p {
+        /* 3. Unselected Text Color (Red) */
+        div[role="radiogroup"] > label p {
+            color: #FF4B4B !important;
             font-size: 16px !important;
             font-weight: 700 !important;
             margin: 0 !important;
         }
 
-        /* Selected Text: BLACK (Takki Cyan par saaf dikhe) */
-        div[role="radiogroup"] > label[data-checked="true"] div[data-testid="stMarkdownContainer"] p {
+        /* 4. SELECTED STATE FIX: 
+           Target label only if it HAS a checked input inside it */
+        div[role="radiogroup"] > label:has(input:checked) {
+            background-color: #00ffff !important; /* Bright Cyan */
+            border: 2px solid #ffffff !important;
+            box-shadow: 0px 0px 20px rgba(0, 255, 255, 0.6) !important;
+            transform: scale(1.05) translateX(5px) !important;
+        }
+
+        /* 5. Selected Text Color (Black for contrast) */
+        div[role="radiogroup"] > label:has(input:checked) p {
             color: #000000 !important;
         }
 
-        /* Unselected Text: RED */
-        div[role="radiogroup"] > label div[data-testid="stMarkdownContainer"] p {
-            color: #FF4B4B !important;
+        /* Sidebar width adjust for better look (Optional) */
+        [data-testid="stSidebar"] {
+            min-width: 300px !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -143,8 +147,12 @@ display_options = [f"{nav_items[p]} {p}" for p in pages]
 if 'page' not in st.session_state: 
     st.session_state.page = "Model Selection"
 
-selected_item = st.sidebar.radio("🚀 Navigation", display_options, 
-                                    index=pages.index(st.session_state.page))
+# Sidebar navigation
+selected_item = st.sidebar.radio(
+    "🚀 Navigation", 
+    display_options, 
+    index=pages.index(st.session_state.page)
+)
 
 # Page update logic
 clean_page_name = selected_item.split(" ", 1)[-1]
@@ -152,7 +160,8 @@ if st.session_state.page != clean_page_name:
     st.session_state.page = clean_page_name
     st.rerun()
 
-current_page = st.session_state.page
+# Main Content
+st.title(f"Current Page: {st.session_state.page}")
 
 # ================= 5. PAGE CONTENT =================
 
