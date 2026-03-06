@@ -83,7 +83,7 @@ if not st.session_state.logged_in:
         st.title("🔐 Secure Login")
         user = st.text_input("Username")
         pw = st.text_input("Password", type="password")
-        if st.button("AUTHENTICATE SYSTEM", use_container_width=True):
+        if st.button("Sign In", use_container_width=True):
             if user == "admin" and pw == "ashu@1234":
                 st.session_state.logged_in = True
                 st.rerun()
