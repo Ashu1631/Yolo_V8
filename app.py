@@ -36,9 +36,9 @@ def get_sleek_plot(image, model):
     label_annotator = sv.LabelAnnotator(
         text_scale=0.8,        # Crystal Clear Font
         text_thickness=2, 
-        text_padding=10, 
+        text_padding=12, 
         text_color=sv.Color.WHITE, 
-        border_radius=5
+        border_radius=4
     )
     
     annotated_frame = box_annotator.annotate(scene=image.copy(), detections=detections)
