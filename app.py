@@ -17,7 +17,6 @@ import plotly.graph_objects as go
 
 # Page Configuration
 st.set_page_config(page_title="Ashu YOLO Enterprise Pro", layout="wide", initial_sidebar_state="expanded")
-<img src="yolov8.png" width="200">
 
 # ================= 1. DIRECTORY SETUP =================
 DIRS = ["outputs/images", "outputs/videos", "failure_cases", "analysis", "datasets"]
