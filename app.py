@@ -167,34 +167,68 @@ elif current_page == "Upload & Detect":
         temp_path = os.path.join("outputs", uploaded.name)
         with open(temp_path, "wb") as f: f.write(uploaded.getbuffer())
         is_video = uploaded.name.endswith(".mp4")
+        
         if st.session_state.secondary_model:
             c1, c2 = st.columns(2)
-            c1.info(f"🟢 Model A: {st.session_state.model_name}")
-            c2.info(f"🔵 Model B: {st.session_state.secondary_name}")
+            # FPS Placeholders
+            fps_a_text = c1.empty()
+            fps_b_text = c2.empty()
+            
             if is_video:
                 cap1, cap2 = cv2.VideoCapture(temp_path), cv2.VideoCapture(temp_path)
                 out1, out2 = c1.empty(), c2.empty()
                 while cap1.isOpened():
+                    t1 = time.time() # Start Time
                     r1, f1 = cap1.read(); r2, f2 = cap2.read()
                     if not r1 or not r2: break
-                    out1.image(get_sleek_plot(f1, st.session_state.model), channels="BGR")
-                    out2.image(get_sleek_plot(f2, st.session_state.secondary_model), channels="BGR")
+                    
+                    frame_a = get_sleek_plot(f1, st.session_state.model)
+                    frame_b = get_sleek_plot(f2, st.session_state.secondary_model)
+                    
+                    t2 = time.time() # End Time
+                    fps = 1.0 / (t2 - t1)
+                    
+                    fps_a_text.markdown(f"**🟢 Model A FPS:** `{fps:.2f}`")
+                    fps_b_text.markdown(f"**🔵 Model B FPS:** `{fps:.2f}`")
+                    
+                    out1.image(frame_a, channels="BGR")
+                    out2.image(frame_b, channels="BGR")
                 cap1.release(); cap2.release()
             else:
                 img = cv2.imread(temp_path)
-                c1.image(get_sleek_plot(img, st.session_state.model), channels="BGR")
-                c2.image(get_sleek_plot(img, st.session_state.secondary_model), channels="BGR")
+                # Model A Timing
+                t1 = time.time()
+                res_a = get_sleek_plot(img, st.session_state.model)
+                fps_a = 1.0 / (time.time() - t1)
+                
+                # Model B Timing
+                t2 = time.time()
+                res_b = get_sleek_plot(img, st.session_state.secondary_model)
+                fps_b = 1.0 / (time.time() - t2)
+                
+                fps_a_text.metric(f"Model A Speed", f"{fps_a:.2f} FPS")
+                fps_b_text.metric(f"Model B Speed", f"{fps_b:.2f} FPS")
+                c1.image(res_a, channels="BGR")
+                c2.image(res_b, channels="BGR")
         else:
-            st.info(f"Using: {st.session_state.model_name}")
+            fps_text = st.empty()
             if is_video:
                 cap = cv2.VideoCapture(temp_path); out = st.empty()
                 while cap.isOpened():
+                    t1 = time.time()
                     ret, frame = cap.read()
                     if not ret: break
-                    out.image(get_sleek_plot(frame, st.session_state.model), channels="BGR")
+                    processed = get_sleek_plot(frame, st.session_state.model)
+                    fps = 1.0 / (time.time() - t1)
+                    fps_text.markdown(f"🚀 **Real-time Speed:** `{fps:.2f} FPS`")
+                    out.image(processed, channels="BGR")
             else:
                 img = cv2.imread(temp_path)
-                st.image(get_sleek_plot(img, st.session_state.model), channels="BGR")
+                t1 = time.time()
+                res = get_sleek_plot(img, st.session_state.model)
+                fps = 1.0 / (time.time() - t1)
+                st.metric("Inference Speed", f"{fps:.2f} FPS")
+                st.image(res, channels="BGR")
 
 elif current_page == "Dataset Analysis":
     st.title("📁 Sleek Dataset Explorer")
@@ -203,13 +237,26 @@ elif current_page == "Dataset Analysis":
         sel_img = st.selectbox("Select Dataset Image", files)
         img = cv2.imread(os.path.join("datasets", sel_img))
         c1, c2 = st.columns(2)
+        
+        # Model A with FPS
+        t1 = time.time()
+        res_a = get_sleek_plot(img, st.session_state.model)
+        fps_a = 1.0 / (time.time() - t1)
+        
         c1.markdown(f"**🟢 Model: {st.session_state.model_name}**")
-        c1.image(get_sleek_plot(img, st.session_state.model), channels="BGR")
+        c1.caption(f"⚡ Processing Speed: {fps_a:.2f} FPS")
+        c1.image(res_a, channels="BGR")
+        
         if st.session_state.secondary_model:
+            # Model B with FPS
+            t2 = time.time()
+            res_b = get_sleek_plot(img, st.session_state.secondary_model)
+            fps_b = 1.0 / (time.time() - t2)
+            
             c2.markdown(f"**🔵 Model: {st.session_state.secondary_name}**")
-            c2.image(get_sleek_plot(img, st.session_state.secondary_model), channels="BGR")
+            c2.caption(f"⚡ Processing Speed: {fps_b:.2f} FPS")
+            c2.image(res_b, channels="BGR")
     else: st.error("No images in /datasets")
-
 elif current_page == "Evaluation Dashboard":
     st.title("📊 4. Evaluation & Results")
     st.markdown("Is section mein model ki training performance aur metrics ka detailed analysis hai.")
