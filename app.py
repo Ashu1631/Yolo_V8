@@ -28,28 +28,42 @@ if "secondary_model" not in st.session_state: st.session_state.secondary_model =
     
 # ================= 2. SLEEK PLOT HELPER =================
 def get_sleek_plot(image, model):
-    """Simple and Stable version that won't crash."""
+    """Images aur Videos dono ke liye best detection font aur style."""
     results = model(image, conf=0.3)[0]
     detections = sv.Detections.from_ultralytics(results)
+    
     labels = [
         f"{model.names[class_id]} {confidence*100:.0f}%"
         for class_id, confidence in zip(detections.class_id, detections.confidence)
     ]
-    box_annotator = sv.BoxAnnotator()
-    label_annotator = sv.LabelAnnotator(
-        text_scale=0.4,
-        text_thickness=1,
-        text_padding=4
+    
+    # 1. Box Annotator: Line ki motai 2 rakhi hai taaki clean dikhe
+    box_annotator = sv.BoxAnnotator(
+        thickness=2
     )
+    
+    # 2. Label Annotator: Font ko bold aur readable banaya gaya hai
+    label_annotator = sv.LabelAnnotator(
+        text_scale=0.6,             # Font size thoda aur bada kiya (Visible on all screens)
+        text_thickness=2,           # Font ko bold (mota) kiya taaki blur na ho
+        text_padding=8,             # Background box ke andar thoda gap
+        text_color=sv.Color.WHITE,  # Text White rakha hai
+        border_radius=4             # Labels ke corners ko thoda round kiya
+    )
+    
+    # Annotate Frame
     annotated_frame = box_annotator.annotate(
         scene=image.copy(), 
         detections=detections
     )
+    
+    # Label drawing with high contrast
     annotated_frame = label_annotator.annotate(
         scene=annotated_frame, 
         detections=detections, 
         labels=labels
     )
+    
     return annotated_frame
     
 # ================= 3. LOGIN SYSTEM =================
