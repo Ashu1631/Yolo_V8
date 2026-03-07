@@ -399,7 +399,6 @@ class VideoProcessor(VideoProcessorBase):
             )
         return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
 
-# <--- Is 'elif' ke pehle koi space nahi hona chahiye (Left Margin se touch)
 elif current_page == "Webcam Detection":
     st.title(f"🎥 Live Feed: {st.session_state.get('model_name', 'Model')}")
     
