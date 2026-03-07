@@ -427,16 +427,16 @@ if current_page == "Model Comparison":
 elif current_page == "Model Comparison":
     st.title("⚖️ Advanced Benchmarking (10-Graph Matrix)")
 
-    # --- 🤖 Machine Learning PNG/Box Section ---
+    # Dashboard Header
     st.markdown("""
         <div style="background: rgba(0, 255, 255, 0.05); border: 2px solid #00ffff; border-radius: 15px; padding: 20px; text-align: center; margin-bottom: 30px;">
             <h3 style="color: #00ffff; margin-top: 15px;">Neural Network Analytics Hub</h3>
         </div>
     """, unsafe_allow_html=True)
 
-    # DataFrame Logic
-    m1 = st.session_state.model_name if st.session_state.get('model') else "yolov8n.pt"
-    m2 = st.session_state.secondary_name if st.session_state.get('secondary_model') else "best.pt"
+    # Data Check - Agar model loaded nahi hai toh dummy data dikhayega
+    m1 = st.session_state.get('model_name', "Primary Model")
+    m2 = st.session_state.get('secondary_name', "Secondary Model")
 
     df_bench = pd.DataFrame({
         "Model": [m1, m2, "Baseline"], 
@@ -450,36 +450,25 @@ elif current_page == "Model Comparison":
         "Throughput": [65, 120, 200]
     })
 
+    # Graphs Generation
     c1, c2 = st.columns(2)
 
     with c1:
-        st.markdown("### 📊 1. Precision (**Bar Chart**)")
+        st.markdown("### 📊 Precision Analysis")
         st.plotly_chart(px.bar(df_bench, x="Model", y="Precision", color="Model", template="plotly_dark"), use_container_width=True)
 
-        st.markdown("### 📈 2. Inference Flow (**Line Graph**)")
+        st.markdown("### 📈 Inference Latency (ms)")
         st.plotly_chart(px.line(df_bench, x="Model", y="Latency_ms", markers=True), use_container_width=True)
 
-        st.markdown("### 📉 3. mAP50 Performance (**Area Graph**)")
-        st.plotly_chart(px.area(df_bench, x="Model", y="mAP50"), use_container_width=True)
-
-        st.markdown("### 🧪 4. Detection Stages (**Funnel Chart**)")
-        st.plotly_chart(px.funnel(dict(number=[100, 80, 60, 40], stage=["Input", "Boxes", "Conf", "Final"]), x='number', y='stage'), use_container_width=True)
-
-        st.markdown("### 🌌 5. Weight vs Accuracy (**Scatter Plot**)")
+        st.markdown("### 🌌 Accuracy vs Size")
         st.plotly_chart(px.scatter(df_bench, x="Params_M", y="mAP50", size="Latency_ms", color="Model"), use_container_width=True)
 
     with c2:
-        st.markdown("### 🍕 6. Recall Distribution (**Pie/Donut Chart**)")
+        st.markdown("### 🍕 Recall Distribution")
         st.plotly_chart(px.pie(df_bench, names="Model", values="Recall", hole=0.3), use_container_width=True)
 
-        st.markdown("### 🧮 7. Metric Correlation (**Heatmap Graph**)")
-        st.plotly_chart(px.imshow(df_bench.corr(numeric_only=True), text_auto=True), use_container_width=True)
-
-        st.markdown("### 🌊 8. Model Gain (**Waterfall Chart**)")
-        st.plotly_chart(go.Figure(go.Waterfall(x=df_bench["Model"], y=[0.68, 0.07, 0.16], measure=["relative"]*3)), use_container_width=True)
-
-        st.markdown("### 🏆 9. F1 Harmonic Mean (**Color Bar Chart**)")
+        st.markdown("### 🏆 F1 Score Comparison")
         st.plotly_chart(px.bar(df_bench, x="Model", y="F1", color="F1"), use_container_width=True)
 
-        st.markdown("### 🏎️ 10. Throughput vs mAP (**Bubble Graph**)")
+        st.markdown("### 🏎️ Model Throughput (FPS)")
         st.plotly_chart(px.scatter(df_bench, x="Throughput", y="mAP50-95", size="Params_M", color="Model"), use_container_width=True)
