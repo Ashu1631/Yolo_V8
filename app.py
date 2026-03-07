@@ -425,7 +425,7 @@ elif current_page == "Webcam Detection":
             video_processor_factory=lambda: VideoProcessor(st.session_state.model),
             media_stream_constraints={"video": True, "audio": False},
             async_processing=True
-)
+       )
     else:
         st.error("❌ Model load nahi mila! Pehle model select/load karein.")
 
