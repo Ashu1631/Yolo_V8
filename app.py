@@ -373,23 +373,47 @@ elif current_page == "Evaluation Dashboard":
             st.dataframe(df, use_container_width=True)
     else: st.error("analysis/results.csv file missing hai.")
 
+RTC_CONFIG = RTCConfiguration(
+    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}, {"urls": ["stun:stun1.l.google.com:19302"]}]}
+)
+
+class VideoProcessor(VideoProcessorBase):
+    def __init__(self, model):
+        # Session state se model yahan pass ho kar aayega
+        self.model = model
+
+    def recv(self, frame):
+        img = frame.to_ndarray(format="bgr24")
+        
+        if self.model is not None:
+            # YOLO prediction
+            results = self.model(img, conf=0.5)
+            # Annotated frame (BGR format mein hi milta hai)
+            annotated_frame = results[0].plot()
+        else:
+            annotated_frame = cv2.putText(
+                img, "Model Not Loaded", (50, 50), 
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
+            )
+            
+        return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
+
 elif current_page == "Webcam Detection":
     st.title(f"🎥 Live Feed: {st.session_state.get('model_name', 'Model')}")
-    RTC_CONFIG = RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}, {"urls": ["stun:stun1.l.google.com:19302"]}]})
-    class VideoProcessor(VideoProcessorBase):
-        def __init__(self): self.model = st.session_state.get('model', None)
-        def recv(self, frame):
-            img = frame.to_ndarray(format="bgr24")
-            if self.model is not None:
-                results = self.model(img, conf=0.5) 
-                annotated_frame = results[0].plot()
-            else:
-                annotated_frame = cv2.putText(img, "Model Not Loaded", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
+
     if 'model' in st.session_state and st.session_state.model is not None:
-        webrtc_streamer(key="yolo-live-detection", mode=WebRtcMode.SENDRECV, rtc_configuration=RTC_CONFIG, video_processor_factory=VideoProcessor, media_stream_constraints={"video": True, "audio": False}, async_processing=True)
+        # Factory function jo model ko processor ke andar bhejta hai
+        webrtc_streamer(
+            key="yolo-live-detection",
+            mode=WebRtcMode.SENDRECV,
+            rtc_configuration=RTC_CONFIG,
+            # Yahan hum model ko lambda ke through pass kar rahe hain
+            video_processor_factory=lambda: VideoProcessor(st.session_state.model),
+            media_stream_constraints={"video": True, "audio": False},
+            async_processing=True
+        )
     else:
-        st.error("❌ Model load nahi mila!")
+        st.error("❌ Model load nahi mila! Pehle model select/load karein.")
 
 elif current_page == "Model Comparison":
     st.title("⚖️ Advanced Benchmarking (10-Graph Matrix)")
