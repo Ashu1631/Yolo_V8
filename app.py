@@ -398,8 +398,7 @@ class VideoProcessor(VideoProcessorBase):
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
             )
         return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
-        
-elif current_page == "Webcam Detection":
+elif current_page = "Webcam Detection":
     st.title(f"🎥 Live Feed: {st.session_state.get('model_name', 'Model')}")
     
     if 'model' in st.session_state and st.session_state.model is not None:
