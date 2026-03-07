@@ -413,9 +413,7 @@ elif current_page == "Webcam Detection":
         )
     else:
         st.error("❌ Model load nahi mila! Pehle model selection page par jayein.")
-# ================= 7. NEXT PAGE LOGIC =================
-elif current_page == "Model Comparison":
-
+# ================= 7. NEXT PAGE LOGIC ==============
 elif current_page == "Model Comparison":
     st.title("⚖️ Advanced Benchmarking (10-Graph Matrix)")
 
