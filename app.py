@@ -373,9 +373,15 @@ elif current_page == "Evaluation Dashboard":
             st.dataframe(df, use_container_width=True)
     else: st.error("analysis/results.csv file missing hai.")
 
-RTC_CONFIG = RTCConfiguration(
-    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}, {"urls": ["stun:stun1.l.google.com:19302"]}]}
-)
+RTC_CONFIG = RTCConfiguration({
+    "iceServers": [
+        {"urls": ["stun:stun.l.google.com:19302"]},
+        {"urls": ["stun:stun1.l.google.com:19302"]},
+        {"urls": ["stun:stun2.l.google.com:19302"]},
+        {"urls": ["stun:stun.services.mozilla.com"]} # Added Mozilla's STUN
+    ]
+})
+
 
 class VideoProcessor(VideoProcessorBase):
     def __init__(self, model):
