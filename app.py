@@ -410,7 +410,7 @@ if current_page == "Webcam Detection":
     # Session state check karne ka safe tarika
     model_to_use = st.session_state.get('model', None)
     if model_to_use is not None:
-    webrtc_streamer(
+      webrtc_streamer(
             key="yolo-live-detection",
             mode=WebRtcMode.SENDRECV,
             rtc_configuration=RTC_CONFIG,
