@@ -400,20 +400,26 @@ class VideoProcessor(VideoProcessorBase):
         return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
 
 # --- Page Routing Logic (Independent Block) ---
+# Is block ko replace karein (Line 407 ke aas-paas)
 if current_page == "Webcam Detection":
-    st.title(f"🎥 Live Feed: {st.session_state.get('model_name', 'Model')}")
+    st.title(f"🎥 Live Feed: {st.session_state.get('model_name', 'Model Not Loaded')}")
     
-    if st.session_state.get('model') is not None:
+    # Session state check karne ka safe tarika
+    model_to_use = st.session_state.get('model', None)
+
+    if model_to_use is not None:
         webrtc_streamer(
             key="yolo-live-detection",
             mode=WebRtcMode.SENDRECV,
             rtc_configuration=RTC_CONFIG,
-            video_processor_factory=lambda: VideoProcessor(st.session_state.model),
+            # Yahan humne st.session_state.model ki jagah safe variable 'model_to_use' use kiya hai
+            video_processor_factory=lambda: VideoProcessor(model_to_use),
             media_stream_constraints={"video": True, "audio": False},
             async_processing=True
         )
     else:
-        st.error("❌ Model not found! Pehle 'Model Selection' page par jayein.")
+        st.warning("⚠️ Model initialize nahi hua hai.")
+        st.info("Pehle 'Model Selection' page par jaakar 'Initialize Models' button dabayein.")
 
 if current_page == "Model Comparison":
     st.title("⚖️ Advanced Benchmarking")
