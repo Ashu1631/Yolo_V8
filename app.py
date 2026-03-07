@@ -382,6 +382,7 @@ RTC_CONFIG = RTCConfiguration({
     ]
 })
 
+# ================= 6. WEBCAM DETECTION LOGIC =================
 
 class VideoProcessor(VideoProcessorBase):
     def __init__(self, model):
@@ -390,9 +391,11 @@ class VideoProcessor(VideoProcessorBase):
     def recv(self, frame):
         img = frame.to_ndarray(format="bgr24")
         if self.model is not None:
+            # YOLO inference
             results = self.model(img, conf=0.5)
             annotated_frame = results[0].plot()
         else:
+            # Agar model load nahi hai toh error text dikhao
             annotated_frame = cv2.putText(
                 img, "Model Not Loaded", (50, 50), 
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
@@ -412,9 +415,10 @@ elif current_page == "Webcam Detection":
             async_processing=True
         )
     else:
-        st.error("❌ Model load nahi mila! Pehle model select ya upload karein.")
-    else:
-        st.error("❌ Model load nahi mila! Pehle model select/load karein.")
+        st.error("❌'Model Selection')
+
+# ================= 7. NEXT PAGE LOGIC =================
+elif current_page == "Model Comparison":
 
 elif current_page == "Model Comparison":
     st.title("⚖️ Advanced Benchmarking (10-Graph Matrix)")
