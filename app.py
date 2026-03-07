@@ -385,23 +385,20 @@ RTC_CONFIG = RTCConfiguration({
 # ================= 6. WEBCAM DETECTION LOGIC =================
 class VideoProcessor(VideoProcessorBase):
     def __init__(self, model):
-        # Model ko constructor ke zariye pass kiya gaya hai
         self.model = model
 
     def recv(self, frame):
         img = frame.to_ndarray(format="bgr24")
         if self.model is not None:
-            # YOLO inference logic
             results = self.model(img, conf=0.5)
             annotated_frame = results[0].plot()
         else:
-            # Model load na hone par error display
             annotated_frame = cv2.putText(
                 img, "Model Not Loaded", (50, 50), 
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
             )
         return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
-
+        
 elif current_page == "Webcam Detection":
     st.title(f"🎥 Live Feed: {st.session_state.get('model_name', 'Model')}")
     
@@ -415,8 +412,7 @@ elif current_page == "Webcam Detection":
             async_processing=True
         )
     else:
-        st.error("❌ Model load nahi mila! Pehle 'Model Selection' page par jaakar model load karein.")
-
+        st.error("❌ Model load nahi mila! Pehle model selection page par jayein.")
 # ================= 7. NEXT PAGE LOGIC =================
 elif current_page == "Model Comparison":
 
