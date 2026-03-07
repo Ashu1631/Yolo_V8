@@ -421,8 +421,6 @@ if current_page == "Webcam Detection":
         st.warning("⚠️ Model initialize nahi hua hai.")
         st.info("Pehle 'Model Selection' page par jaakar 'Initialize Models' button dabayein.")
 
-if current_page == "Model Comparison":
-    st.title("⚖️ Advanced Benchmarking")
 # ================= 7. NEXT PAGE LOGIC ==============
 elif current_page == "Model Comparison":
     st.title("⚖️ Advanced Benchmarking (10-Graph Matrix)")
