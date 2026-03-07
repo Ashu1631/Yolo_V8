@@ -378,7 +378,10 @@ RTC_CONFIG = RTCConfiguration({
         {"urls": ["stun:stun.l.google.com:19302"]},
         {"urls": ["stun:stun1.l.google.com:19302"]},
         {"urls": ["stun:stun2.l.google.com:19302"]},
-        {"urls": ["stun:stun.services.mozilla.com"]} # Added Mozilla's STUN
+        {"urls": ["stun:stun3.l.google.com:19302"]},
+        {"urls": ["stun:stun4.l.google.com:19302"]},
+        {"urls": ["stun:stun.services.mozilla.com"]},
+        {"urls": ["stun:stun.relay.metered.ca:80"]} # Extra fallback server
     ]
 })
 
