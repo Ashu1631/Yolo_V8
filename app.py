@@ -415,7 +415,7 @@ elif current_page == "Webcam Detection":
             async_processing=True
         )
     else:
-        st.error("❌'Model Selection')
+        st.error(❌'Model Selection')
 
 # ================= 7. NEXT PAGE LOGIC =================
 elif current_page == "Model Comparison":
