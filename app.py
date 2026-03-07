@@ -389,27 +389,6 @@ class VideoProcessor(VideoProcessorBase):
 
     def recv(self, frame):
         img = frame.to_ndarray(format="bgr24")
-        
-        if self.model is not None:
-            # YOLO prediction
-            results = self.model(img, conf=0.5)
-            # Annotated frame (BGR format)
-            annotated_frame = results[0].plot()
-        else:
-            annotated_frame = cv2.putText(
-                img, "Model Not Loaded", (50, 50), 
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
-            )
-            
-        return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
-
-
-class VideoProcessor(VideoProcessorBase):
-    def __init__(self, model):
-        self.model = model
-
-    def recv(self, frame):
-        img = frame.to_ndarray(format="bgr24")
         if self.model is not None:
             results = self.model(img, conf=0.5)
             annotated_frame = results[0].plot()
@@ -420,6 +399,7 @@ class VideoProcessor(VideoProcessorBase):
             )
         return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
 
+# <--- Is 'elif' ke pehle koi space nahi hona chahiye (Left Margin se touch)
 elif current_page == "Webcam Detection":
     st.title(f"🎥 Live Feed: {st.session_state.get('model_name', 'Model')}")
     
@@ -433,13 +413,7 @@ elif current_page == "Webcam Detection":
             async_processing=True
         )
     else:
-        st.error("❌ Model load nahi mila!")
-    else:
         st.error("❌ Model load nahi mila! Pehle model select ya upload karein.")
-            video_processor_factory=lambda: VideoProcessor(st.session_state.model),
-            media_stream_constraints={"video": True, "audio": False},
-            async_processing=True
-       )
     else:
         st.error("❌ Model load nahi mila! Pehle model select/load karein.")
 
