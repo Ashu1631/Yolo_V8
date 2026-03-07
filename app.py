@@ -402,9 +402,7 @@ class VideoProcessor(VideoProcessorBase):
             )
         return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
 
-# <--- DHAYAN DEIN: Is line ke pehle EK BHI space nahi hona chahiye.
-# Yeh screen ki bilkul left margin se touch hona chahiye.
-elif current_page == "Webcam Detection":
+    elif current_page == "Webcam Detection":
     st.title(f"🎥 Live Feed: {st.session_state.get('model_name', 'Model')}")
     
     if 'model' in st.session_state and st.session_state.model is not None:
