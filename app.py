@@ -398,10 +398,12 @@ class VideoProcessor(VideoProcessorBase):
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
             )
         return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
-elif current_page = "Webcam Detection":
+
+# --- Page Routing Logic (Independent Block) ---
+if current_page == "Webcam Detection":
     st.title(f"🎥 Live Feed: {st.session_state.get('model_name', 'Model')}")
     
-    if 'model' in st.session_state and st.session_state.model is not None:
+    if st.session_state.get('model') is not None:
         webrtc_streamer(
             key="yolo-live-detection",
             mode=WebRtcMode.SENDRECV,
@@ -411,7 +413,10 @@ elif current_page = "Webcam Detection":
             async_processing=True
         )
     else:
-        st.error("❌ Model load nahi mila! Pehle model selection page par jayein.")
+        st.error("❌ Model not found! Pehle 'Model Selection' page par jayein.")
+
+if current_page == "Model Comparison":
+    st.title("⚖️ Advanced Benchmarking")
 # ================= 7. NEXT PAGE LOGIC ==============
 elif current_page == "Model Comparison":
     st.title("⚖️ Advanced Benchmarking (10-Graph Matrix)")
