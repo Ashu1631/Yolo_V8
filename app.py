@@ -409,30 +409,20 @@ if current_page == "Webcam Detection":
     
     # Session state check karne ka safe tarika
     model_to_use = st.session_state.get('model', None)
-
     if model_to_use is not None:
     webrtc_streamer(
-        key="yolo-live-detection",
-        mode=WebRtcMode.SENDRECV,
-        rtc_configuration=RTC_CONFIG,
-        video_processor_factory=lambda: VideoProcessor(model_to_use),
-        # Is configuration ko update kiya hai:
-        media_stream_constraints={
-            "video": {
-                "width": {"ideal": 640},
-                "height": {"ideal": 480},
-                "frameRate": {"ideal": 20}
+            key="yolo-live-detection",
+            mode=WebRtcMode.SENDRECV,
+            rtc_configuration=RTC_CONFIG,
+            video_processor_factory=lambda: VideoProcessor(model_to_use),
+            media_stream_constraints={
+                "video": {"width": 640, "height": 480},
+                "audio": False
             },
-            "audio": False
-        },
-        async_processing=True,
-        # Yeh line connection stability ke liye hai:
-        video_html_attrs={
-            "style": {"width": "100%", "margin": "0 auto", "border": "2px solid #00ffff"},
-            "controls": False,
-            "autoPlay": True,
-        },
-    )
+            async_processing=True
+        )
+    else:
+        st.error("❌ Model initialize nahi mila! Pehle model select karein.")
 # ================= 7. NEXT PAGE LOGIC ==============
 elif current_page == "Model Comparison":
     st.title("⚖️ Advanced Benchmarking (10-Graph Matrix)")
