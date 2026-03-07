@@ -409,15 +409,17 @@ elif current_page == "Webcam Detection":
     st.title(f"🎥 Live Feed: {st.session_state.get('model_name', 'Model')}")
 
     if 'model' in st.session_state and st.session_state.model is not None:
+        if 'model' in st.session_state and st.session_state.model is not None:
         webrtc_streamer(
             key="yolo-live-detection",
             mode=WebRtcMode.SENDRECV,
             rtc_configuration=RTC_CONFIG,
-            # Factory function model pass karne ke liye
             video_processor_factory=lambda: VideoProcessor(st.session_state.model),
             media_stream_constraints={"video": True, "audio": False},
             async_processing=True
-        )
+        ) 
+    else:
+        st.error("❌ Model load nahi mila! Pehle model select ya upload karein.")
     else:
         st.error("❌ Model load nahi mila! Pehle model select ya upload karein.")
             video_processor_factory=lambda: VideoProcessor(st.session_state.model),
