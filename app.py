@@ -385,7 +385,7 @@ RTC_CONFIG = RTCConfiguration({
 
 class VideoProcessor(VideoProcessorBase):
     def __init__(self, model):
-        # Session state se model yahan pass ho kar aayega
+        # Model ko constructor ke zariye pass kiya gaya hai taaki threading issue na ho
         self.model = model
 
     def recv(self, frame):
@@ -394,7 +394,7 @@ class VideoProcessor(VideoProcessorBase):
         if self.model is not None:
             # YOLO prediction
             results = self.model(img, conf=0.5)
-            # Annotated frame (BGR format mein hi milta hai)
+            # Annotated frame (BGR format)
             annotated_frame = results[0].plot()
         else:
             annotated_frame = cv2.putText(
@@ -404,16 +404,22 @@ class VideoProcessor(VideoProcessorBase):
             
         return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
 
+# <--- DHAYAN DEIN: elif ab bilkul left margin par hai, class ke bahar
 elif current_page == "Webcam Detection":
     st.title(f"🎥 Live Feed: {st.session_state.get('model_name', 'Model')}")
 
     if 'model' in st.session_state and st.session_state.model is not None:
-        # Factory function jo model ko processor ke andar bhejta hai
         webrtc_streamer(
             key="yolo-live-detection",
             mode=WebRtcMode.SENDRECV,
             rtc_configuration=RTC_CONFIG,
-            # Yahan hum model ko lambda ke through pass kar rahe hain
+            # Factory function model pass karne ke liye
+            video_processor_factory=lambda: VideoProcessor(st.session_state.model),
+            media_stream_constraints={"video": True, "audio": False},
+            async_processing=True
+        )
+    else:
+        st.error("❌ Model load nahi mila! Pehle model select ya upload karein.")
             video_processor_factory=lambda: VideoProcessor(st.session_state.model),
             media_stream_constraints={"video": True, "audio": False},
             async_processing=True
