@@ -386,43 +386,65 @@ RTC_CONFIG = RTCConfiguration({
 })
 
 # ================= 6. WEBCAM DETECTION LOGIC =================
-class VideoProcessor(VideoProcessorBase):
-    def __init__(self, model):
-        self.model = model
+class VideoProcessor:
+    def __init__(self):
+        # Session state se model uthayein (Pass by reference)
+        self.model = st.session_state.get('model', None)
 
     def recv(self, frame):
+        # Frame convert karein
         img = frame.to_ndarray(format="bgr24")
+        
         if self.model is not None:
-            results = self.model(img, conf=0.5)
+            # YOLO Inference (Enterprise level analytics ke liye conf=0.5 optimized hai)
+            results = self.model(img, conf=0.5, verbose=False)
+            
+            # Annotated frame generate karein
             annotated_frame = results[0].plot()
         else:
+            # Error visualization agar model load na ho
             annotated_frame = cv2.putText(
-                img, "Model Not Loaded", (50, 50), 
+                img, "ERROR: Model Not Loaded", (50, 50), 
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
             )
+            
         return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
 
 # --- Page Routing Logic (Independent Block) ---
-# Is block ko replace karein (Line 407 ke aas-paas)
-if current_page == "Webcam Detection":
-    st.title(f"🎥 Live Feed: {st.session_state.get('model_name', 'Model Not Loaded')}")
+def show_webcam_page():
+    # Model name display karein
+    model_name = st.session_state.get('model_name', 'No Model Selected')
+    st.title(f"🎥 Live Enterprise Feed: {model_name}")
     
-    # Session state check karne ka safe tarika
-    model_to_use = st.session_state.get('model', None)
-    if model_to_use is not None:
-      webrtc_streamer(
+    # Validation: Check karein ki model load hua hai ya nahi
+    if st.session_state.get('model') is not None:
+        st.info("💡 Tip: Agar feed load nahi ho rahi, toh browser camera permissions check karein.")
+        
+        webrtc_streamer(
             key="yolo-live-detection",
             mode=WebRtcMode.SENDRECV,
             rtc_configuration=RTC_CONFIG,
-            video_processor_factory=lambda: VideoProcessor(model_to_use),
+            video_processor_factory=VideoProcessor,
             media_stream_constraints={
                 "video": {"width": 640, "height": 480},
                 "audio": False
             },
-            async_processing=True
+            async_processing=True # Performance ke liye True rakha hai
         )
+        
+        # Dashboard analytics section (Optional)
+        st.write("---")
+        st.subheader("Real-time Tracking Status")
+        st.write(f"Active Model: **{model_name}**")
+        
     else:
-        st.error("❌ Model initialize nahi mila! Pehle model select karein.")
+        # User feedback for initialization
+        st.error("❌ Model initialize nahi mila! Pehle Sidebar se model select karke 'Load' karein.")
+        st.image("https://img.icons8.com/ios/100/000000/error.png", width=50)
+
+# Implementation inside main page routing
+if current_page == "Webcam Detection":
+    show_webcam_page()
 # ================= 7. NEXT PAGE LOGIC ==============
 elif current_page == "Model Comparison":
     st.title("⚖️ Advanced Benchmarking (10-Graph Matrix)")
