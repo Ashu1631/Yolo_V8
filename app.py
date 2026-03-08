@@ -387,28 +387,15 @@ RTC_CONFIG = RTCConfiguration({
 
 # ================= 6. WEBCAM DETECTION LOGIC =================
 class VideoProcessor:
-    def __init__(self):
-        # Session state se model uthayein (Pass by reference)
-        self.model = st.session_state.get('model', None)
-
     def recv(self, frame):
-        # Frame convert karein
         img = frame.to_ndarray(format="bgr24")
         
-        if self.model is not None:
-            # YOLO Inference (Enterprise level analytics ke liye conf=0.5 optimized hai)
-            results = self.model(img, conf=0.5, verbose=False)
+        if 'model' not in st.session_state or st.session_state.model is None:
+            print("DEBUG: Model object missing in Session State!")
+            return av.VideoFrame.from_ndarray(img, format="bgr24")
             
-            # Annotated frame generate karein
-            annotated_frame = results[0].plot()
-        else:
-            # Error visualization agar model load na ho
-            annotated_frame = cv2.putText(
-                img, "ERROR: Model Not Loaded", (50, 50), 
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
-            )
-            
-        return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
+        results = st.session_state.model(img, conf=0.5)
+        return av.VideoFrame.from_ndarray(results[0].plot(), format="bgr24")
 
 # --- Page Routing Logic (Independent Block) ---
 def show_webcam_page():
