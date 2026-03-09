@@ -372,72 +372,8 @@ elif current_page == "Evaluation Dashboard":
         with st.expander("📂 Raw Training Logs Dekhen"):
             st.dataframe(df, use_container_width=True)
     else: st.error("analysis/results.csv file missing hai.")
-
-RTC_CONFIG = RTCConfiguration({
-    "iceServers": [
-        {"urls": ["stun:stun.l.google.com:19302"]},
-        {"urls": ["stun:stun1.l.google.com:19302"]},
-        {"urls": ["stun:stun2.l.google.com:19302"]},
-        {"urls": ["stun:stun3.l.google.com:19302"]},
-        {"urls": ["stun:stun4.l.google.com:19302"]},
-        {"urls": ["stun:stun.services.mozilla.com"]},
-        {"urls": ["stun:stun.relay.metered.ca:80"]} # Extra fallback server
-    ]
-})
-
-# ================= 6. WEBCAM DETECTION LOGIC =================
-class VideoProcessor:
-    def __init__(self):
-        # Explicitly grabbing the model from the session state once
-        self.model = st.session_state.get('model')
-
-    def recv(self, frame):
-        # Convert frame to numpy array
-        img = frame.to_ndarray(format="bgr24")
-        
-        # Guard clause: if model is missing, return original frame
-        if self.model is None:
-            return av.VideoFrame.from_ndarray(img, format="bgr24")
-
-        # Perform Detection
-        # conf=0.3 helps in showing boxes even with lower confidence
-        results = self.model.predict(img, conf=0.3, verbose=False)
-        
-        # Draw boxes on the image
-        annotated_img = results[0].plot()
-        
-        # Return the annotated frame
-        return av.VideoFrame.from_ndarray(annotated_img, format="bgr24")
-
-def show_webcam_page():
-    model_name = st.session_state.get('model_name', 'No Model Selected')
-    st.title(f"Live Enterprise Feed: {model_name}")
-
-    if st.session_state.get('model') is not None:
-        # Checkbox or Button to activate
-        start_camera = st.checkbox("Toggle Webcam", value=False)
-
-        if start_camera:
-            webrtc_streamer(
-                key="yolo-live-detection",
-                mode=WebRtcMode.SENDRECV,
-                rtc_configuration=RTC_CONFIG,
-                # Pass the class definition
-                video_processor_factory=VideoProcessor,
-                media_stream_constraints={
-                    "video": True,
-                    "audio": False
-                },
-                async_processing=True,
-            )
-    else:
-        st.error("Error: Model is not loaded in Session State. Please go to Sidebar and load it.")
-
-# Routing logic
-if current_page == "Webcam Detection":
-    show_webcam_page()
     
-# ================= 7. NEXT PAGE LOGIC ==============
+# ================= 6. NEXT PAGE LOGIC ==============
 elif current_page == "Model Comparison":
     st.title("⚖️ Advanced Benchmarking (10-Graph Matrix)")
 
