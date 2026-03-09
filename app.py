@@ -388,55 +388,59 @@ RTC_CONFIG = RTCConfiguration({
 # ================= 6. WEBCAM DETECTION LOGIC =================
 class VideoProcessor:
     def __init__(self):
-        # Session state se model utha kar class variable mein save kar rahe hain
+        # Taking model directly from session state during initialization
         self.model = st.session_state.get('model')
 
     def recv(self, frame):
         img = frame.to_ndarray(format="bgr24")
         
-        # Check if model exists
         if self.model is None:
             return av.VideoFrame.from_ndarray(img, format="bgr24")
-            
-        # YOLO Detection
-        results = self.model(img, conf=0.5)
+
+        # Running YOLO detection
+        results = self.model(img, conf=0.4, verbose=False)
         
-        # Results ko frame par plot karke return karna
-        annotated_frame = results[0].plot()
-        return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
+        # Plotting results onto the frame
+        annotated_img = results[0].plot()
+        
+        return av.VideoFrame.from_ndarray(annotated_img, format="bgr24")
 
 def show_webcam_page():
     model_name = st.session_state.get('model_name', 'No Model Selected')
-    st.title(f"🎥 Live Enterprise Feed: {model_name}")
-    
-    if st.session_state.get('model') is not None:
-        st.info("💡 Tip: Agar 'Running' dikh raha hai par feed nahi aa rahi, toh 'Select Device' check karein.")
-        
-        webrtc_streamer(
-            key="yolo-live-detection",
-            mode=WebRtcMode.SENDRECV,
-            rtc_configuration=RTC_CONFIG,
-            # Factory context pass karein
-            video_processor_factory=VideoProcessor,
-            media_stream_constraints={
-                "video": {
-                    "width": {"ideal": 640}, 
-                    "height": {"ideal": 480},
-                    "frameRate": {"ideal": 20}
-                },
-                "audio": False
-            },
-            async_processing=True,
-        )
-        
-        st.write("---")
-        st.subheader("Real-time Tracking Status")
-        st.write(f"Active Model: **{model_name}**")
-        
-    else:
-        st.error("❌ Model initialize nahi mila! Pehle Sidebar se model select karein.")
+    st.title(f"Live Enterprise Feed: {model_name}")
 
-# Page Routing
+    if st.session_state.get('model') is not None:
+        # State to control the webcam activation
+        if "webcam_active" not in st.session_state:
+            st.session_state.webcam_active = False
+
+        # Button to trigger the webcam
+        if not st.session_state.webcam_active:
+            if st.button("Start Camera"):
+                st.session_state.webcam_active = True
+                st.rerun()
+
+        if st.session_state.webcam_active:
+            webrtc_streamer(
+                key="yolo-live-detection",
+                mode=WebRtcMode.SENDRECV,
+                rtc_configuration=RTC_CONFIG,
+                video_processor_factory=VideoProcessor,
+                desired_playing_state=True,
+                media_stream_constraints={
+                    "video": True,
+                    "audio": False
+                },
+                async_processing=True,
+            )
+            
+            if st.button("Stop Camera"):
+                st.session_state.webcam_active = False
+                st.rerun()
+    else:
+        st.error("Error: Model not found. Please load a model from the sidebar first.")
+
+# Integration with your main routing
 if current_page == "Webcam Detection":
     show_webcam_page()
 # ================= 7. NEXT PAGE LOGIC ==============
