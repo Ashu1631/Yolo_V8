@@ -117,7 +117,6 @@ nav_items = {
     "Model Selection": "📦",
     "Upload & Detect": "🔍",
     "Dataset Analysis": "📁",
-    "Webcam Detection": "🎥",
     "Evaluation Dashboard": "📊",
     "Failure Cases": "❌",
     "Model Comparison": "⚖️"
