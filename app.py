@@ -388,21 +388,25 @@ RTC_CONFIG = RTCConfiguration({
 # ================= 6. WEBCAM DETECTION LOGIC =================
 class VideoProcessor:
     def __init__(self):
-        # Taking model directly from session state during initialization
+        # Explicitly grabbing the model from the session state once
         self.model = st.session_state.get('model')
 
     def recv(self, frame):
+        # Convert frame to numpy array
         img = frame.to_ndarray(format="bgr24")
         
+        # Guard clause: if model is missing, return original frame
         if self.model is None:
             return av.VideoFrame.from_ndarray(img, format="bgr24")
 
-        # Running YOLO detection
-        results = self.model(img, conf=0.4, verbose=False)
+        # Perform Detection
+        # conf=0.3 helps in showing boxes even with lower confidence
+        results = self.model.predict(img, conf=0.3, verbose=False)
         
-        # Plotting results onto the frame
+        # Draw boxes on the image
         annotated_img = results[0].plot()
         
+        # Return the annotated frame
         return av.VideoFrame.from_ndarray(annotated_img, format="bgr24")
 
 def show_webcam_page():
@@ -410,39 +414,29 @@ def show_webcam_page():
     st.title(f"Live Enterprise Feed: {model_name}")
 
     if st.session_state.get('model') is not None:
-        # State to control the webcam activation
-        if "webcam_active" not in st.session_state:
-            st.session_state.webcam_active = False
+        # Checkbox or Button to activate
+        start_camera = st.checkbox("Toggle Webcam", value=False)
 
-        # Button to trigger the webcam
-        if not st.session_state.webcam_active:
-            if st.button("Start Camera"):
-                st.session_state.webcam_active = True
-                st.rerun()
-
-        if st.session_state.webcam_active:
+        if start_camera:
             webrtc_streamer(
                 key="yolo-live-detection",
                 mode=WebRtcMode.SENDRECV,
                 rtc_configuration=RTC_CONFIG,
+                # Pass the class definition
                 video_processor_factory=VideoProcessor,
-                desired_playing_state=True,
                 media_stream_constraints={
                     "video": True,
                     "audio": False
                 },
                 async_processing=True,
             )
-            
-            if st.button("Stop Camera"):
-                st.session_state.webcam_active = False
-                st.rerun()
     else:
-        st.error("Error: Model not found. Please load a model from the sidebar first.")
+        st.error("Error: Model is not loaded in Session State. Please go to Sidebar and load it.")
 
-# Integration with your main routing
+# Routing logic
 if current_page == "Webcam Detection":
     show_webcam_page()
+    
 # ================= 7. NEXT PAGE LOGIC ==============
 elif current_page == "Model Comparison":
     st.title("⚖️ Advanced Benchmarking (10-Graph Matrix)")
