@@ -7,41 +7,38 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from ultralytics import YOLO
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration, WebRtcMode
 import av
 from datetime import datetime
 import supervision as sv
-import plotly.express as px
-import plotly.graph_objects as go
 
-# Page Configuration
+# ================= 1. PAGE & DIRECTORY SETUP =================
 st.set_page_config(page_title="Ashu YOLO Enterprise Pro", layout="wide", initial_sidebar_state="expanded")
 
-# ================= 1. DIRECTORY SETUP =================
-DIRS = ["outputs/images", "outputs/videos", "failure_cases", "analysis", "datasets"]
+DIRS = ["outputs", "failure_cases", "analysis", "datasets"]
 for d in DIRS:
     os.makedirs(d, exist_ok=True)
 
+# Initialize Session States safely
 if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "page" not in st.session_state: st.session_state.page = "Model Selection"
 if "model" not in st.session_state: st.session_state.model = None
+if "model_name" not in st.session_state: st.session_state.model_name = "None"
 if "secondary_model" not in st.session_state: st.session_state.secondary_model = None
-    
+if "secondary_name" not in st.session_state: st.session_state.secondary_name = "None"
+
 def get_sleek_plot(image, model):
     if model is None:
         return image
-        
-    results = model(image, conf=0.3)[0]
+    
+    results = model(image, conf=0.3, verbose=False)[0]
     detections = sv.Detections.from_ultralytics(results)
     
     label_annotator = sv.LabelAnnotator(
-    text_scale=0.8,       
-    text_thickness=2,     
-    text_padding=10,
-    text_position=sv.Position.TOP_LEFT 
-)
-    
-    # Boxes ke liye
+        text_scale=0.6,       
+        text_thickness=1,     
+        text_padding=8,
+        text_position=sv.Position.TOP_LEFT 
+    )
     box_annotator = sv.BoxAnnotator()
     
     annotated_frame = box_annotator.annotate(scene=image.copy(), detections=detections)
@@ -49,58 +46,29 @@ def get_sleek_plot(image, model):
     
     return annotated_frame
 
-# ================= 3. LOGIN SYSTEM (TECH BACKGROUND) =================
+# ================= 2. LOGIN SYSTEM =================
 if not st.session_state.logged_in:
     st.markdown("""
         <style>
-        /* 1. Upar shift karne ke liye padding kam ki hai */
         .stApp {
-            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), 
-                        url('https://images.unsplash.com/photo-1726403846137-3c7ae90afedc?q=80&w=1332&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), 
+                        url('https://images.unsplash.com/photo-1726403846137-3c7ae90afedc?q=80&w=1332&auto=format&fit=crop');
             background-size: cover;
         }
-
-        /* 2. Page Title: Automatically theme color (Cyan) pick karega */
-        .main-title {
-            color: #00ffff; 
-            text-align: center; 
-            font-size: 3rem; 
-            font-weight: 800;
-            margin-top: -50px; /* Isse title upar shift ho jayega */
-            text-shadow: 0 0 15px rgba(0,255,255,0.5);
-        }
-
-        /* 3. Gradient Border Remove karke clean Cyan border rakhi hai */
-        .stTextInput > div > div {
-            border: 1px solid #00ffff !important; 
-            background-color: rgba(0,0,0,0.5) !important;
-            border-radius: 8px !important;
-        }
-
-        /* Sign In Button spacing */
-        div.stButton > button {
-            margin-top: 10px;
-            background-color: #006400 !important;
-            border: none !important; /* Gradient border removed */
-        }
+        .main-title { color: #00ffff; text-align: center; font-size: 3rem; font-weight: 800; margin-top: -50px; text-shadow: 0 0 15px rgba(0,255,255,0.5); }
+        .stTextInput > div > div { border: 1px solid #00ffff !important; background-color: rgba(0,0,0,0.5) !important; border-radius: 8px !important; }
+        div.stButton > button { margin-top: 10px; background-color: #006400 !important; color: white !important; border: none !important; }
         </style>
     """, unsafe_allow_html=True)
 
-    # Title ko thoda upar lane ke liye container
-    st.markdown("<div style='margin-top: -30px;'>", unsafe_allow_html=True)
     st.markdown("<h1 class='main-title'>🚀 Ashu YOLO Enterprise</h1>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        # GIF size thoda chhota karke upar shift kiya
-        st.markdown(f'<img src="https://static.vecteezy.com/system/resources/thumbnails/010/851/451/small/abstract-technological-background-with-various-technological-elements-structure-pattern-technology-backdrop-png.png" style="width:180px; display:block; margin:auto; margin-top:-20px; filter:drop-shadow(0 0 10px #00ffff);">', unsafe_allow_html=True)
-        
-        st.markdown("<h3 style='color:white; text-align:center; margin-bottom:20px;'>🔐 Secure Login</h3>", unsafe_allow_html=True)
-        
-        # Form inputs
-        user = st.text_input("Username", placeholder="Enter Username", label_visibility="collapsed")
-        pw = st.text_input("Password", type="password", placeholder="Enter Password", label_visibility="collapsed")
+        st.markdown(f'<img src="https://static.vecteezy.com/system/resources/thumbnails/010/851/451/small/abstract-technological-background-with-various-technological-elements-structure-pattern-technology-backdrop-png.png" style="width:150px; display:block; margin:auto; filter:drop-shadow(0 0 10px #00ffff);">', unsafe_allow_html=True)
+        st.markdown("<h3 style='color:white; text-align:center;'>🔐 Secure Login</h3>", unsafe_allow_html=True)
+        user = st.text_input("Username", placeholder="admin", label_visibility="collapsed")
+        pw = st.text_input("Password", type="password", placeholder="password", label_visibility="collapsed")
         
         if st.button("Sign In", use_container_width=True):
             if user == "admin" and pw == "ashu@1234":
@@ -110,83 +78,31 @@ if not st.session_state.logged_in:
                 st.error("Access Denied!")
     st.stop()
 
-# ================= 4. NAVIGATION (Custom Styled & Icons) =================
-
+# ================= 3. NAVIGATION =================
 nav_items = {
     "Model Selection": "📦",
     "Upload & Detect": "🔍",
     "Dataset Analysis": "📁",
     "Evaluation Dashboard": "📊",
-    "Failure Cases": "❌",
     "Model Comparison": "⚖️"
 }
 
-st.markdown("""
-    <style>
-        div[role="radiogroup"] > label > div:first-child { 
-            display: none !important; 
-        }
-        div[role="radiogroup"] > label {
-            background-color: #800000 !important;
-            border: 2px solid #000000 !important;
-            border-radius: 12px 30px 30px 12px !important;
-            padding: 10px 20px !important;
-            margin-bottom: 10px !important;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        div[role="radiogroup"] > label p {
-            color: #FFFFFF !important;
-            font-size: 16px !important;
-            font-weight: 700 !important;
-            margin: 0 !important;
-        }
-        div[role="radiogroup"] > label:has(input:checked) {
-            background-color: #008000 !important;
-            border: 2px solid #000000 !important;
-            box-shadow: 0px 0px 20px rgba(0, 255, 255, 0.6) !important;
-            transform: scale(1.05) translateX(5px) !important;
-        }
-        div[role="radiogroup"] > label:has(input:checked) p {
-            color: #000000 !important;
-        }
-        [data-testid="stSidebar"] {
-            min-width: 300px !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
+st.sidebar.markdown("### 🚀 Navigation")
+selected_page = st.sidebar.radio("Go to", list(nav_items.keys()), format_func=lambda x: f"{nav_items[x]} {x}")
 
-pages = list(nav_items.keys())
-display_options = [f"{nav_items[p]} {p}" for p in pages]
+if st.session_state.page != selected_page:
+    st.session_state.page = selected_page
 
-if 'page' not in st.session_state: 
-    st.session_state.page = "Model Selection"
+# ================= 4. PAGES =================
 
-selected_item = st.sidebar.radio(
-    "🚀 Navigation", 
-    display_options, 
-    index=pages.index(st.session_state.page)
-)
-
-# FIXED: Defining current_page variable so below conditions work
-current_page = selected_item.split(" ", 1)[-1]
-
-if st.session_state.page != current_page:
-    st.session_state.page = current_page
-    st.rerun()
-
-st.title(f"Current Page: {st.session_state.page}")
-
-# ================= 5. PAGE CONTENT =================
-
-if current_page == "Model Selection":
+if st.session_state.page == "Model Selection":
     st.title("📦 Model Selection")
     models = [f for f in os.listdir() if f.endswith(".pt")]
     col1, col2 = st.columns(2)
     with col1:
         primary = st.selectbox("Select Primary Model", ["-- Select --"] + models)
     with col2:
-        secondary = st.selectbox("Select Secondary Model (For Comparison)", ["None"] + models)
+        secondary = st.selectbox("Select Secondary Model (Optional)", ["None"] + models)
     
     if st.button("Initialize Models"):
         if primary != "-- Select --":
@@ -195,14 +111,16 @@ if current_page == "Model Selection":
             if secondary != "None":
                 st.session_state.secondary_model = YOLO(secondary)
                 st.session_state.secondary_name = secondary
+            else:
+                st.session_state.secondary_model = None
+                st.session_state.secondary_name = "Not Selected"
             st.success(f"Loaded: {primary}")
-            st.session_state.page = "Upload & Detect"
             st.rerun()
 
-elif current_page == "Upload & Detect":
-    st.title("🔍 Sleek Detection & Comparison Hub")
+elif st.session_state.page == "Upload & Detect":
+    st.title("🔍 Detection & Comparison Hub")
     if not st.session_state.model:
-        st.warning("⚠️ Load a model first!")
+        st.warning("⚠️ Please load a model in 'Model Selection' first!")
         st.stop()
     
     uploaded = st.file_uploader("Upload Image or Video", type=["jpg", "png", "jpeg", "mp4"])
@@ -212,211 +130,85 @@ elif current_page == "Upload & Detect":
         with open(temp_path, "wb") as f: f.write(uploaded.getbuffer())
         is_video = uploaded.name.endswith(".mp4")
 
-        # --- 1. PHOTO COMPARE (Side by Side with Model Labels) ---
         c1, c2 = st.columns(2)
-        
-        # Model A Header
-        c1.markdown(f"<h3 style='text-align: center; color: #00ffff;'>🚀 Model A: {st.session_state.model_name}</h3>", unsafe_allow_html=True)
-        # Model B Header
-        c2.markdown(f"<h3 style='text-align: center; color: #ff4b4b;'>🔥 Model B: {st.session_state.get('secondary_name', 'Secondary')}</h3>", unsafe_allow_html=True)
+        c1.markdown(f"<h4 style='text-align: center; color: #00ffff;'>Model A: {st.session_state.model_name}</h4>", unsafe_allow_html=True)
+        c2.markdown(f"<h4 style='text-align: center; color: #ff4b4b;'>Model B: {st.session_state.secondary_name}</h4>", unsafe_allow_html=True)
         
         out1, out2 = c1.empty(), c2.empty()
-        
-        # --- 2. SCORE / CALCULATOR VALUES ---
-        st.divider()
-        st.subheader("⚡ Inference Score (Calculator)")
-        m1, m2 = st.columns(2)
-        val_a = m1.empty()
-        val_b = m2.empty()
-
-        # --- 3. GRAPH (Separate Lines for Models) ---
-        st.divider()
-        st.subheader("📊 Performance Timeline (FPS Graph)")
+        val_a, val_b = st.columns(2)[0].empty(), st.columns(2)[1].empty()
         fps_chart = st.empty()
-        
-        history_a = []
-        history_b = []
 
         if is_video:
-            cap1 = cv2.VideoCapture(temp_path)
-            cap2 = cv2.VideoCapture(temp_path)
-            
-            while cap1.isOpened():
-                t_start_a = time.time()
-                r1, f1 = cap1.read()
-                if not r1: break
-                res1 = get_sleek_plot(f1, st.session_state.model)
-                fps_a = 1.0 / (time.time() - t_start_a)
+            cap = cv2.VideoCapture(temp_path)
+            hist_a, hist_b = [], []
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret: break
                 
-                t_start_b = time.time()
-                r2, f2 = cap2.read()
-                if not r2: break
-                res2 = get_sleek_plot(f2, st.session_state.secondary_model if st.session_state.secondary_model else st.session_state.model)
-                fps_b = 1.0 / (time.time() - t_start_b)
+                # Model A Inference
+                t_s1 = time.time()
+                res1 = get_sleek_plot(frame, st.session_state.model)
+                fps_a = 1.0 / (time.time() - t_s1 + 1e-6)
+                
+                # Model B Inference
+                t_s2 = time.time()
+                res2 = get_sleek_plot(frame, st.session_state.secondary_model) if st.session_state.secondary_model else frame
+                fps_b = 1.0 / (time.time() - t_s2 + 1e-6)
 
-                # Update Images
                 out1.image(res1, channels="BGR")
                 out2.image(res2, channels="BGR")
-
-                # Update Calculator Values
-                val_a.metric(f"🚀 {st.session_state.model_name}", f"{fps_a:.2f} FPS")
-                val_b.metric(f"🔥 {st.session_state.get('secondary_name', 'Model B')}", f"{fps_b:.2f} FPS")
-
-                # Update Graph
-                history_a.append(fps_a)
-                history_b.append(fps_b)
-                df_graph = pd.DataFrame({
-                    st.session_state.model_name: history_a[-50:],
-                    st.session_state.get('secondary_name', 'Model B'): history_b[-50:]
-                })
-                fps_chart.line_chart(df_graph)
-
-            cap1.release(); cap2.release()
+                
+                hist_a.append(fps_a)
+                hist_b.append(fps_b)
+                
+                df_fps = pd.DataFrame({st.session_state.model_name: hist_a[-30:], 
+                                      st.session_state.secondary_name: hist_b[-30:]})
+                fps_chart.line_chart(df_fps)
+            cap.release()
         else:
-            # Static Image Logic
             img = cv2.imread(temp_path)
-            t1 = time.time()
             res1 = get_sleek_plot(img, st.session_state.model)
-            fps_a = 1.0 / (time.time() - t1)
-            
-            t2 = time.time()
-            res2 = get_sleek_plot(img, st.session_state.secondary_model)
-            fps_b = 1.0 / (time.time() - t2)
-
+            res2 = get_sleek_plot(img, st.session_state.secondary_model) if st.session_state.secondary_model else img
             out1.image(res1, channels="BGR")
             out2.image(res2, channels="BGR")
-            val_a.metric(f"🚀 {st.session_state.model_name}", f"{fps_a:.2f} FPS")
-            val_b.metric(f"🔥 {st.session_state.secondary_name}", f"{fps_b:.2f} FPS")
-            fps_chart.line_chart(pd.DataFrame({"FPS": [fps_a, fps_b]}, index=[st.session_state.model_name, st.session_state.secondary_name]))
 
-elif current_page == "Dataset Analysis":
-    st.title("📁 Sleek Dataset Explorer")
-    files = [f for f in os.listdir("datasets") if f.endswith(('.jpg', '.png'))]
-    if files:
-        sel_img = st.selectbox("Select Dataset Image", files)
-        img = cv2.imread(os.path.join("datasets", sel_img))
-        
-        # 1. PHOTO COMPARE with Visual Titles
-        c1, c2 = st.columns(2)
-        c1.markdown(f"<h3 style='text-align: center; color: #00ffff;'>🚀 Model A: {st.session_state.model_name}</h3>", unsafe_allow_html=True)
-        c2.markdown(f"<h3 style='text-align: center; color: #ff4b4b;'>🔥 Model B: {st.session_state.secondary_name}</h3>", unsafe_allow_html=True)
-        
-        t1 = time.time()
-        res_a = get_sleek_plot(img, st.session_state.model)
-        fps_a = 1.0 / (time.time() - t1)
-        
-        t2 = time.time()
-        res_b = get_sleek_plot(img, st.session_state.secondary_model)
-        fps_b = 1.0 / (time.time() - t2)
-
-        c1.image(res_a, channels="BGR")
-        c2.image(res_b, channels="BGR")
-
-        # 2. SCORE CALCULATOR
-        st.divider()
-        m1, m2 = st.columns(2)
-        m1.metric(f"🚀 Score {st.session_state.model_name}", f"{fps_a:.2f} FPS")
-        m2.metric(f"🔥 Score {st.session_state.secondary_name}", f"{fps_b:.2f} FPS")
-
-        # 3. GRAPH
-        st.divider()
-        st.subheader("🚀 Speed Benchmark")
-        df_bench = pd.DataFrame({
-            "Model": [st.session_state.model_name, st.session_state.secondary_name],
-            "FPS": [fps_a, fps_b]
-        }).set_index("Model")
-        st.line_chart(df_bench)
-        
-elif current_page == "Evaluation Dashboard":
-    st.title("📊 4. Evaluation & Results")
-    st.markdown("Is section mein model ki training performance aur metrics ka detailed analysis hai.")
-    st.divider()
-    st.header("4.1 Performance Analysis")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("### 📉 Loss Curve")
-        if os.path.exists("analysis/loss_curve.png"):
-            st.image("analysis/loss_curve.png", caption="Training & Validation Loss", use_container_width=True)
-        else: st.info("analysis/loss_curve.png nahi mili.")
-    with col2:
-        st.markdown("### 🎯 Confusion Matrix")
-        if os.path.exists("analysis/confusion_matrix.png"):
-            st.image("analysis/confusion_matrix.png", caption="Prediction Errors per Class", use_container_width=True)
-        else: st.info("analysis/confusion_matrix.png nahi mili.")
-    st.divider()
-    st.header("4.2 Accuracy Metrics")
-    col3, col4 = st.columns(2)
-    with col3:
-        st.markdown("### 📈 Box F1 Curve")
-        if os.path.exists("analysis/BoxF1_curve.png"):
-            st.image("analysis/BoxF1_curve.png", caption="F1-Score vs Confidence", use_container_width=True)
-        else: st.info("analysis/BoxF1_curve.png nahi mili.")
-    with col4:
-        st.markdown("### 🎯 Box PR Curve")
-        if os.path.exists("analysis/BoxPR_curve.png"):
-            st.image("analysis/BoxPR_curve.png", caption="Precision-Recall Tradeoff", use_container_width=True)
-        else: st.info("analysis/BoxPR_curve.png nahi mili.")
-    st.divider()
-    st.header("4.3 Summary Table (Final Scores)")
-    if os.path.exists("analysis/results.csv"):
-        df = pd.read_csv("analysis/results.csv")
-        df.columns = df.columns.str.strip()
-        last_results = df.iloc[-1]
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("mAP@.5", f"{last_results.get('metrics/mAP50(B)', 0):.3f}")
-        m2.metric("mAP@.5:.95", f"{last_results.get('metrics/mAP50-95(B)', 0):.3f}")
-        m3.metric("Precision", f"{last_results.get('metrics/precision(B)', 0):.3f}")
-        m4.metric("Recall", f"{last_results.get('metrics/recall(B)', 0):.3f}")
-        with st.expander("📂 Raw Training Logs Dekhen"):
-            st.dataframe(df, use_container_width=True)
-    else: st.error("analysis/results.csv file missing hai.")
+elif st.session_state.page == "Evaluation Dashboard":
+    st.title("📊 Evaluation Dashboard")
+    st.markdown("---")
     
-# ================= 6. NEXT PAGE LOGIC ==============
-elif current_page == "Model Comparison":
-    st.title("⚖️ Advanced Benchmarking (10-Graph Matrix)")
+    # Check for results.csv
+    csv_path = "analysis/results.csv"
+    if os.path.exists(csv_path):
+        df = pd.read_csv(csv_path)
+        df.columns = df.columns.str.strip()
+        last = df.iloc[-1]
+        
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("mAP@50", f"{last.get('metrics/mAP50(B)', 0):.3f}")
+        m2.metric("mAP@50-95", f"{last.get('metrics/mAP50-95(B)', 0):.3f}")
+        m3.metric("Precision", f"{last.get('metrics/precision(B)', 0):.3f}")
+        m4.metric("Recall", f"{last.get('metrics/recall(B)', 0):.3f}")
+        
+        st.dataframe(df.tail(10), use_container_width=True)
+    else:
+        st.info("💡 Place 'results.csv' in the 'analysis/' folder to see metrics.")
 
-    # Dashboard Header
-    st.markdown("""
-        <div style="background: rgba(0, 255, 255, 0.05); border: 2px solid #00ffff; border-radius: 15px; padding: 20px; text-align: center; margin-bottom: 30px;">
-            <h3 style="color: #00ffff; margin-top: 15px;">Neural Network Analytics Hub</h3>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Data Check - Agar model loaded nahi hai toh dummy data dikhayega
-    m1 = st.session_state.get('model_name', "Primary Model")
-    m2 = st.session_state.get('secondary_name', "Secondary Model")
-
+elif st.session_state.page == "Model Comparison":
+    st.title("⚖️ Advanced Benchmarking")
+    # Mock data for visualization
+    m1 = st.session_state.model_name
+    m2 = st.session_state.secondary_name
+    
     df_bench = pd.DataFrame({
-        "Model": [m1, m2, "Baseline"], 
-        "Precision": [0.88, 0.72, 0.65], 
-        "Recall": [0.84, 0.70, 0.60], 
-        "mAP50": [0.91, 0.75, 0.68], 
-        "Latency_ms": [15, 8, 5], 
-        "F1": [0.86, 0.71, 0.62], 
-        "Params_M": [8.5, 3.2, 1.0], 
-        "mAP50-95": [0.65, 0.45, 0.35], 
-        "Throughput": [65, 120, 200]
+        "Model": [m1, m2],
+        "Precision": [0.88, 0.75],
+        "Recall": [0.82, 0.70],
+        "mAP50": [0.90, 0.78],
+        "Latency_ms": [12, 25]
     })
-
-    # Graphs Generation
+    
     c1, c2 = st.columns(2)
-
     with c1:
-        st.markdown("### 📊 Precision Analysis")
-        st.plotly_chart(px.bar(df_bench, x="Model", y="Precision", color="Model", template="plotly_dark"), use_container_width=True)
-
-        st.markdown("### 📈 Inference Latency (ms)")
-        st.plotly_chart(px.line(df_bench, x="Model", y="Latency_ms", markers=True), use_container_width=True)
-
-        st.markdown("### 🌌 Accuracy vs Size")
-        st.plotly_chart(px.scatter(df_bench, x="Params_M", y="mAP50", size="Latency_ms", color="Model"), use_container_width=True)
-
+        st.plotly_chart(px.bar(df_bench, x="Model", y="mAP50", color="Model", title="Accuracy (mAP50)"), use_container_width=True)
     with c2:
-        st.markdown("### 🍕 Recall Distribution")
-        st.plotly_chart(px.pie(df_bench, names="Model", values="Recall", hole=0.3), use_container_width=True)
-
-        st.markdown("### 🏆 F1 Score Comparison")
-        st.plotly_chart(px.bar(df_bench, x="Model", y="F1", color="F1"), use_container_width=True)
-
-        st.markdown("### 🏎️ Model Throughput (FPS)")
-        st.plotly_chart(px.scatter(df_bench, x="Throughput", y="mAP50-95", size="Params_M", color="Model"), use_container_width=True)
+        st.plotly_chart(px.line(df_bench, x="Model", y="Latency_ms", title="Latency (Lower is better)"), use_container_width=True)
