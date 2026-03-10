@@ -6,4 +6,4 @@ numpy
 plotly
 torch
 torchvision
-streamlit-webrtc
+supervision
