@@ -23,31 +23,66 @@ if "model" not in st.session_state: st.session_state.model = None
 if not st.session_state.logged_in:
     st.markdown("""
         <style>
+        /* Pure page background */
         .stApp {
             background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), 
                         url("https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1920&q=80");
             background-size: cover;
+            background-position: center;
         }
-        [data-testid="stVerticalBlock"] > div:has(input) {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 50px; border-radius: 20px;
-            backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1);
+        
+        /* Login Container Fix */
+        [data-testid="stVerticalBlock"] > div:has(div.login-box) {
+            background: transparent !important;
         }
-        h1 { color: #28a745 !important; text-align: center; }
+
+        .login-box {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 2rem;
+            border-radius: 20px;
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 400px;
+            margin: auto;
+            text-align: center;
+        }
+
+        /* Input and Label Styling */
+        label { color: #28a745 !important; font-weight: bold !important; margin-bottom: 5px; }
+        .stTextInput input {
+            background-color: rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 10px !important;
+        }
+        
+        h2 { color: white !important; font-family: 'Segoe UI', sans-serif; margin-bottom: 1rem; }
         </style>
     """, unsafe_allow_html=True)
-    st.title("🎯 Ashu YOLO AI - Authentication")
+
+    # Spacing to center vertically
+    st.markdown("<br><br><br><br>", unsafe_allow_html=True)
+    
+    # centering using columns
     col1, col2, col3 = st.columns([1, 1.5, 1])
+    
     with col2:
-        u = st.text_input("Username")
-        p = st.text_input("Password", type="password")
-        if st.button("🚀 Enter Dashboard", use_container_width=True):
+        # Wrap everything in a single custom div
+        st.markdown('<div class="login-box">', unsafe_allow_html=True)
+        st.markdown("<h2>🎯 ASHU YOLO AI</h2>", unsafe_allow_html=True)
+        u = st.text_input("Username", placeholder="Enter admin username")
+        p = st.text_input("Password", type="password", placeholder="Enter password")
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🚀 Access Dashboard", use_container_width=True):
             if u == "admin" and p == "ashu@123":
                 st.session_state.logged_in = True
                 st.rerun()
-            else: st.error("Wrong Credentials! ❌")
+            else:
+                st.error("Invaild Credentials! ❌")
+        st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
-
 # ================= SIDEBAR NAVIGATION =================
 pages = ["Model Selection", "Upload & Detect", "Webcam Detection", "Evaluation Dashboard", "Failure Cases", "Model Comparison"]
 st.sidebar.markdown("## 🚀 Navigation")
