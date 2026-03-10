@@ -125,9 +125,7 @@ if page == "Model Selection":
 # 2. UPLOAD & DETECT
 elif page == "Upload & Detect":
     st.title("📤 Analysis Hub - Ashu YOLO AI")
-    if not st.session_state.model: 
-        st.warning("⚠️ Pehle model load karein!")
-        st.stop()
+    if not st.session_state.model: st.warning("⚠️ Model load karein!"); st.stop()
     
     tab1, tab2 = st.tabs(["📤 File Upload", "📂 Dataset Explorer"])
     
@@ -135,31 +133,49 @@ elif page == "Upload & Detect":
         file = st.file_uploader("Upload Image/Video", type=["jpg","png","jpeg","mp4"])
         if file:
             compare = st.checkbox("🔄 Enable Comparison (best.pt vs yolov8n.pt)")
-            path = os.path.join("temp", file.name); os.makedirs("temp", exist_ok=True)
-            with open(path, "wb") as f: f.write(file.read())
             
-            if file.name.lower().endswith((".jpg", ".png", ".jpeg")):
-                img = cv2.imread(path)
+            # --- VIDEO HANDLING ---
+            if file.name.lower().endswith(".mp4"):
+                tfile = tempfile.NamedTemporaryFile(delete=False) 
+                tfile.write(file.read())
+                cap = cv2.VideoCapture(tfile.name)
                 
-                # FPS Calculation START (Dono modes ke liye common)
-                start_time = time.time()
-                res_current = st.session_state.model(img)
-                dt = time.time() - start_time
-                # FPS Calculation END
+                st_frame = st.empty()
+                st_fps = st.empty()
                 
+                m_best = YOLO("best.pt") if compare else None
+                m_nano = YOLO("yolov8n.pt") if compare else None
+
+                while cap.isOpened():
+                    ret, frame = cap.read()
+                    if not ret: break
+                    
+                    start_t = time.time()
+                    if compare:
+                        r1, r2 = m_best(frame, verbose=False), m_nano(frame, verbose=False)
+                        combined = np.hstack((apply_supervision(frame, r1), apply_supervision(frame, r2)))
+                        st_frame.image(cv2.cvtColor(combined, cv2.COLOR_BGR2RGB), use_container_width=True)
+                    else:
+                        res = st.session_state.model(frame, verbose=False)
+                        st_frame.image(cv2.cvtColor(apply_supervision(frame, res), cv2.COLOR_BGR2RGB), use_container_width=True)
+                    
+                    dt = time.time() - start_t
+                    st_fps.plotly_chart(get_fps_chart(dt), use_container_width=True)
+                cap.release()
+
+            # --- IMAGE HANDLING ---
+            else:
+                img = cv2.imdecode(np.frombuffer(file.read(), np.uint8), 1)
+                start_t = time.time()
                 if compare:
                     c1, c2 = st.columns(2)
-                    with c1:
-                        st.markdown("### 🟢 BEST.PT")
-                        st.image(cv2.cvtColor(apply_supervision(img, YOLO("best.pt")(img)), cv2.COLOR_BGR2RGB))
-                    with c2:
-                        st.markdown("### 🔵 YOLOV8N.PT")
-                        st.image(cv2.cvtColor(apply_supervision(img, YOLO("yolov8n.pt")(img)), cv2.COLOR_BGR2RGB))
+                    c1.image(cv2.cvtColor(apply_supervision(img, YOLO("best.pt")(img)), cv2.COLOR_BGR2RGB), caption="Best Model")
+                    c2.image(cv2.cvtColor(apply_supervision(img, YOLO("yolov8n.pt")(img)), cv2.COLOR_BGR2RGB), caption="Nano Model")
                 else:
-                    st.image(cv2.cvtColor(apply_supervision(img, res_current), cv2.COLOR_BGR2RGB), use_container_width=True)
+                    res = st.session_state.model(img)
+                    st.image(cv2.cvtColor(apply_supervision(img, res), cv2.COLOR_BGR2RGB), use_container_width=True)
                 
-                # FPS Graph ab comparison ke niche bhi dikhega
-                st.plotly_chart(get_fps_chart(dt))
+                st.plotly_chart(get_fps_chart(time.time() - start_t))
             
             # Video logic same rahegi...
 
