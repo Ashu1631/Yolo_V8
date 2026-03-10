@@ -1,5 +1,4 @@
 import os
-os.environ["LD_LIBRARY_PATH"] = "/usr/lib/x86_64-linux-gnu"
 import streamlit as st
 import pandas as pd
 import cv2
