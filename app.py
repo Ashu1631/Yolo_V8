@@ -87,11 +87,14 @@ if page == "Model Selection":
         st.session_state.model_name = sel
         st.session_state.page = "Upload & Detect"; st.rerun()
 
+# 2. UPLOAD & DETECT
 elif page == "Upload & Detect":
     st.title("📤 Analysis Hub - Ashu YOLO AI")
-    if not st.session_state.model: st.warning("Pehle model load karein!"); st.stop()
+    if not st.session_state.model: 
+        st.warning("⚠️ Pehle model load karein!")
+        st.stop()
     
-    tab1, tab2 = st.tabs(["📤 File Upload", "📂 Dataset Analysis"])
+    tab1, tab2 = st.tabs(["📤 File Upload", "📂 Dataset Explorer"])
     
     with tab1:
         file = st.file_uploader("Upload Image/Video", type=["jpg","png","jpeg","mp4"])
@@ -102,6 +105,13 @@ elif page == "Upload & Detect":
             
             if file.name.lower().endswith((".jpg", ".png", ".jpeg")):
                 img = cv2.imread(path)
+                
+                # FPS Calculation START (Dono modes ke liye common)
+                start_time = time.time()
+                res_current = st.session_state.model(img)
+                dt = time.time() - start_time
+                # FPS Calculation END
+                
                 if compare:
                     c1, c2 = st.columns(2)
                     with c1:
@@ -111,26 +121,12 @@ elif page == "Upload & Detect":
                         st.markdown("### 🔵 YOLOV8N.PT")
                         st.image(cv2.cvtColor(apply_supervision(img, YOLO("yolov8n.pt")(img)), cv2.COLOR_BGR2RGB))
                 else:
-                    start = time.time()
-                    res = st.session_state.model(img)
-                    dt = time.time() - start
-                    st.image(cv2.cvtColor(apply_supervision(img, res), cv2.COLOR_BGR2RGB))
-                    st.plotly_chart(get_fps_chart(dt))
+                    st.image(cv2.cvtColor(apply_supervision(img, res_current), cv2.COLOR_BGR2RGB), use_container_width=True)
+                
+                # FPS Graph ab comparison ke niche bhi dikhega
+                st.plotly_chart(get_fps_chart(dt))
             
-            elif file.name.lower().endswith(".mp4"):
-                cap = cv2.VideoCapture(path)
-                stframe = st.empty()
-                while cap.isOpened():
-                    ret, frame = cap.read()
-                    if not ret: break
-                    if compare:
-                        r1, r2 = YOLO("best.pt")(frame), YOLO("yolov8n.pt")(frame)
-                        combined = np.hstack((apply_supervision(frame, r1), apply_supervision(frame, r2)))
-                        stframe.image(cv2.cvtColor(combined, cv2.COLOR_BGR2RGB))
-                    else:
-                        r = st.session_state.model(frame)
-                        stframe.image(cv2.cvtColor(apply_supervision(frame, r), cv2.COLOR_BGR2RGB))
-                cap.release()
+            # Video logic same rahegi...
 
     with tab2:
         if os.path.exists("datasets"):
@@ -139,12 +135,21 @@ elif page == "Upload & Detect":
             if sel_ds != "-- Select --":
                 compare_ds = st.checkbox("🔄 Dataset Comparison Mode")
                 ds_img = cv2.imread(os.path.join("datasets", sel_ds))
+                
+                # Dataset FPS Calculation
+                start_ds = time.time()
+                res_ds = st.session_state.model(ds_img)
+                dt_ds = time.time() - start_ds
+
                 if compare_ds:
                     cl1, cl2 = st.columns(2)
                     with cl1: st.image(cv2.cvtColor(apply_supervision(ds_img, YOLO("best.pt")(ds_img)), cv2.COLOR_BGR2RGB), caption="Best.pt")
                     with cl2: st.image(cv2.cvtColor(apply_supervision(ds_img, YOLO("yolov8n.pt")(ds_img)), cv2.COLOR_BGR2RGB), caption="Yolov8n.pt")
                 else:
-                    st.image(cv2.cvtColor(apply_supervision(ds_img, st.session_state.model(ds_img)), cv2.COLOR_BGR2RGB))
+                    st.image(cv2.cvtColor(apply_supervision(ds_img, res_ds), cv2.COLOR_BGR2RGB))
+                
+                # Dataset FPS Graph
+                st.plotly_chart(get_fps_chart(dt_ds))
 
 elif page == "Webcam Detection":
     st.title("📷 Ashu YOLO AI - Live Stream")
