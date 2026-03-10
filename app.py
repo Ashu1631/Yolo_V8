@@ -42,10 +42,10 @@ if not st.session_state.logged_in:
         u = st.text_input("Username")
         p = st.text_input("Password", type="password")
         if st.button("🚀 Enter Dashboard", use_container_width=True):
-            if u == "admin" and p == "123":
+            if u == "admin" and p == "ashu@123":
                 st.session_state.logged_in = True
                 st.rerun()
-            else: st.error("Galt Credentials! ❌")
+            else: st.error("Wrong Credentials! ❌")
     st.stop()
 
 # ================= SIDEBAR NAVIGATION =================
