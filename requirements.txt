@@ -1,10 +1,10 @@
-streamlit
 ultralytics
+streamlit-webrtc
+supervision
+av
 opencv-python-headless
 pandas
 numpy
 plotly
-torch
-torchvision
-supervision
-av
+pyyaml
+reportlab
