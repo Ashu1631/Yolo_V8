@@ -1,95 +1,71 @@
-🚀 Ashu YOLO Enterprise Pro
-Ashu YOLO Enterprise Pro ek industrial-grade Computer Vision dashboard hai jo object detection models (YOLOv8) ko deploy, evaluate aur compare karne ke liye banaya gaya hai. Yeh application researchers aur developers ko real-time inference aur deep analytical insights pradan karti hai.
+Here is the updated README.md in professional English, optimized for your GitHub profile (Ashu1631).
 
-✨ Key Features
-1. 🛡️ Secure Login System
-Admin-level authentication (admin / ashu@1234) enterprise usage ko secure rakhne ke liye.
+🎯 Ashu YOLO AI - Enterprise Analytics Dashboard
+Ashu YOLO AI is a comprehensive computer vision dashboard designed for real-time object detection, model benchmarking, and deep performance evaluation. Built on the YOLOv8 framework, this system provides seamless analysis for images, videos, and live webcam streams through a highly interactive UI.
 
-2. 📦 Model Selection & Multi-Model Support
-Dynamic Loading: Apne custom .pt files ko runtime par select aur load karein.
+🚀 Key Features
+1. 🔐 Secure Admin Access
+Custom UI: Featuring a CSS-styled login portal with a blurred glass effect.
 
-Dual Model Support: Ek saath do models (Primary & Secondary) load karne ki suvidha.
+Role-Based Access: Secure entry via administrative credentials.
 
-3. 🔍 Advanced Detection Hub
-Image & Video: Dono formats par high-speed inference.
+2. 📤 Analysis Hub (Multi-Source Detection)
+File Support: Fast inference for .jpg, .png, and .mp4 formats.
 
-Real-time Comparison: Do models ki performance ko side-by-side video stream mein compare karein.
+Comparison Mode: Side-by-side execution of best.pt vs. yolov8n.pt to compare accuracy and speed in real-time.
 
-Sleek Annotation: Supervision library ka use karke high-quality bounding boxes aur labels.
+Dataset Explorer: Browse and test directly from locally stored datasets.
 
-4. 📹 WebRTC Live Feed
-Browser-based webcam detection bina kisi lag ke, firewall bypass ke liye STUN/TURN servers integrated.
+3. 📷 Live Stream Detection
+WebRTC Integration: Browser-based live detection with minimal latency.
 
-5. 📊 Evaluation & Analytics Dashboard
-Performance Curves: Loss Curve, Confusion Matrix, Box F1, aur PR Curves ka visual analysis.
+Advanced Annotation: Utilizing the Supervision library for professional-grade bounding boxes and class labeling.
 
-CSV Integration: Training logs (results.csv) se metrics ko automatically parse karke KPI metrics dikhata hai.
+4. 📊 Evaluation Dashboard
+Instant Metrics: Real-time display of mAP50, mAP50-95, Precision, and Recall.
 
-6. ⚖️ Model Benchmarking (10-Graph Matrix)
-Advanced Plotly visualizations:
+Interactive Training Curves: Dynamic line charts for Box Loss and Class Loss.
 
-Latency vs Accuracy Scatter
+Visual Analytics: Direct integration of Confusion Matrices, F1-Confidence Curves, and Precision-Recall (PR) Curves.
 
-Precision/Recall Bar & Pie Charts
+5. 🚀 10-Graph Benchmarking Matrix
+Advanced Plotly visualizations for industrial model comparison:
 
-Throughput Analysis & Heatmaps
+Efficiency: Latency vs. Accuracy Scatter plots to identify the "Sweet Spot."
 
-🛠️ Installation & Setup
-Clone the repository:
+Throughput: Heatmaps for FPS analysis across different hardware (CPU/GPU).
 
+Statistical Distribution: Radar charts, Violin plots, and Box plots for deep metric analysis.
+
+🛠️ Tech Stack
+Framework: YOLOv8 (Ultralytics)
+
+Dashboard: Streamlit
+
+Visualization: Plotly, Matplotlib
+
+Processing: OpenCV, NumPy, Pandas
+
+Annotation: Supervision
+
+Streaming: Streamlit-WebRTC, PyAV
+
+📈 Analytics Visualization Guide
+PR Curve: Illustrates the trade-off between precision and recall. A curve closer to the top-right corner indicates a superior model.
+
+F1 Curve: Shows the relationship between the confidence threshold and the F1-score, helping to determine the optimal balance for deployment.
+
+⚙️ Installation
 Bash
-git clone https://github.com/yourusername/yolo-enterprise-pro.git
-cd yolo-enterprise-pro
-Install Dependencies:
+# Clone the repository
+git clone https://github.com/Ashu1631/ashu-yolo-ai.git
 
-Bash
+# Enter the directory
+cd ashu-yolo-ai
+
+# Install dependencies
 pip install -r requirements.txt
-Directory Structure:
-Ensure aapke root folder mein ye folders maujood honge:
 
-analysis/ (Loss curves aur results.csv ke liye)
-
-datasets/ (Test images ke liye)
-
-outputs/ (Inference results ke liye)
-
-Run the App:
-
-Bash
+# Launch the dashboard
 streamlit run app.py
-📂 Project Architecture
-Plaintext
-├── analysis/               # Training results and performance graphs
-├── datasets/               # Sample images for testing
-├── outputs/                # Processed images and videos
-├── app.py                  # Main Streamlit application
-├── requirements.txt        # Python dependencies
-└── best.pt                 # Your custom YOLO model (place here)
-📊 Technical Stack
-Inference Engine: Ultralytics YOLOv8
-
-Frontend: Streamlit
-
-Live Streaming: Streamlit-WebRTC & PyAV
-
-Visualization: Plotly & Supervision
-
-Image Processing: OpenCV
-
-🤝 Contributing
-Agar aap is project ko behtar banana chahte hain, toh:
-
-Repository ko Fork karein.
-
-Naya Branch banayein (git checkout -b feature/AmazingFeature).
-
-Apne changes Commit karein (git commit -m 'Add some AmazingFeature').
-
-Branch ko Push karein (git push origin feature/AmazingFeature).
-
-Ek Pull Request open karein.
-
-📜 License
-Distributed under the MIT License. See LICENSE for more information.
-
-Developed with ❤️ by [Ashu]
+Developed with ❤️ by Ashu YOLO Enterprise
