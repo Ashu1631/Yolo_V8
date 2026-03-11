@@ -270,11 +270,6 @@ elif page == "Evaluation Dashboard":
                 if os.path.exists("analysis/BoxPR_curve.png"):
                     st.image("analysis/BoxPR_curve.png", caption="Precision-Recall Curve", use_container_width=True)
 
-        with tab3:
-            # Training ke dauran jo batch predictions save hote hain
-            if os.path.exists("analysis/val_batch0_labels.jpg"):
-                st.image("analysis/val_batch0_labels.jpg", caption="Ground Truth vs Predictions", use_container_width=True)
-
     else:
         st.error("Results file (analysis/results.csv) missing in 'analysis/' folder. Please train the model first.")
 
