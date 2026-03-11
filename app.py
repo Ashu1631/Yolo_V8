@@ -218,38 +218,150 @@ elif page == "Webcam Detection":
 
 elif page == "Evaluation Dashboard":
     st.title("📊 Ashu YOLO AI - Evaluation")
-    if os.path.exists("analysis/results.csv"):
-        df = pd.read_csv("analysis/results.csv")
+    st.markdown("Performance Curves: Loss Curve, Confusion Matrix, Box F1, aur PR Curves ka visual analysis.")
+    st.divider()
+
+    results_path = "analysis/results.csv"
+    
+    if os.path.exists(results_path):
+        df = pd.read_csv(results_path)
         df.columns = df.columns.str.strip()
         latest = df.iloc[-1]
+
+        # --- Section 1: Key Metrics ---
+        st.subheader("🎯 Key Performance Indicators")
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("mAP50 🎯", f"{latest['metrics/mAP50(B)']*100:.2f}%")
-        m2.metric("mAP50-95 📈", f"{latest['metrics/mAP50-95(B)']*100:.2f}%")
-        st.divider()
-        st.markdown("### 📉 Stacked Loss Curves")
+        m1.metric("mAP50", f"{latest['metrics/mAP50(B)']*100:.1f}%")
+        m2.metric("mAP50-95", f"{latest['metrics/mAP50-95(B)']*100:.1f}%")
+        m3.metric("Precision", f"{latest['metrics/precision(B)']*100:.1f}%")
+        m4.metric("Recall", f"{latest['metrics/recall(B)']*100:.1f}%")
         
+        st.divider()
+
+        # --- Section 2: Training Progress (Loss Curves) ---
+        st.subheader("📉 Training vs Validation Loss")
         l1, l2 = st.columns(2)
-        with l1: st.line_chart(df[['train/box_loss', 'val/box_loss']])
-        with l2: st.line_chart(df[['train/cls_loss', 'val/cls_loss']])
-        if os.path.exists("analysis/confusion_matrix.png"): st.image("analysis/confusion_matrix.png", use_container_width=True)
-    else: st.error("Results file missing.")
+        with l1:
+            st.write("**Box Loss** (Localization)")
+            st.line_chart(df[['train/box_loss', 'val/box_loss']])
+        with l2:
+            st.write("**Class Loss** (Classification)")
+            st.line_chart(df[['train/cls_loss', 'val/cls_loss']])
+
+        st.divider()
+
+        # --- Section 3: Professional Curves (Images) ---
+        st.subheader("🖼️ Detailed Analysis Curves")
+        
+        tab1, tab2, tab3 = st.tabs(["Confusion Matrix", "F1 & PR Curves", "Validation Batches"])
+
+        with tab1:
+            if os.path.exists("analysis/confusion_matrix.png"):
+                st.image("analysis/confusion_matrix.png", caption="Confusion Matrix", use_container_width=True)
+            else:
+                st.info("Confusion Matrix image not found.")
+
+        with tab2:
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if os.path.exists("analysis/F1_curve.png"):
+                    st.image("analysis/F1_curve.png", caption="F1 Confidence Curve", use_container_width=True)
+            with col_b:
+                if os.path.exists("analysis/PR_curve.png"):
+                    st.image("analysis/PR_curve.png", caption="Precision-Recall Curve", use_container_width=True)
+
+        with tab3:
+            # Training ke dauran jo batch predictions save hote hain
+            if os.path.exists("analysis/val_batch0_labels.jpg"):
+                st.image("analysis/val_batch0_labels.jpg", caption="Ground Truth vs Predictions", use_container_width=True)
+
+    else:
+        st.error("Results file (results.csv) missing in 'analysis/' folder. Please train the model first.")
 
 elif page == "Model Comparison":
-    st.title("🚀 Ashu YOLO AI - 10-Graph Dashboard")
+    st.title("🚀 Ashu YOLO AI - 10-Graph Benchmarking")
+    st.markdown("⚖️ Model Benchmarking (10-Graph Matrix) Advanced Plotly visualizations for Latency, Accuracy, and Throughput.")
+    st.divider()
+
+    # Sample Data (Aap ise apne real results se replace kar sakte hain)
     metrics = ["mAP50", "mAP50-95", "Precision", "Recall", "Inference(ms)"]
-    comp_df = pd.DataFrame({"Metric": metrics, "best.pt": [0.85, 0.65, 0.88, 0.82, 12], "yolov8n.pt": [0.78, 0.58, 0.80, 0.75, 8]})
+    comp_df = pd.DataFrame({
+        "Metric": metrics,
+        "best.pt": [0.85, 0.65, 0.88, 0.82, 12.5],
+        "yolov8n.pt": [0.78, 0.58, 0.80, 0.75, 8.2]
+    })
+
+    # Data transformation for some plots
+    df_melted = comp_df.melt(id_vars="Metric", var_name="Model", value_name="Score")
+
+    # --- ROW 1: The Heavy Hitters ---
+    r1_col1, r1_col2 = st.columns(2)
     
-    g1, g2 = st.columns(2)
-    with g1: st.plotly_chart(px.bar(comp_df, x="Metric", y=["best.pt", "yolov8n.pt"], barmode="group", title="1. Bar Comparison"))
-    with g2: st.plotly_chart(px.line(comp_df, x="Metric", y=["best.pt", "yolov8n.pt"], markers=True, title="2. Metric Trend"))
+    with r1_col1:
+        # 1. Bar Comparison (Accuracy Metrics)
+        acc_df = df_melted[df_melted["Metric"] != "Inference(ms)"]
+        st.plotly_chart(px.bar(acc_df, x="Metric", y="Score", color="Model", barmode="group", 
+                               title="1. Accuracy Metrics Comparison", color_discrete_sequence=px.colors.qualitative.Pastel))
+
+    with r1_col2:
+        # 2. Latency vs Accuracy Scatter (Efficiency Plot)
+        # Low Latency + High mAP = Best Model
+        scatter_data = pd.DataFrame({
+            "Model": ["best.pt", "yolov8n.pt"],
+            "mAP50": [0.85, 0.78],
+            "Latency (ms)": [12.5, 8.2]
+        })
+        st.plotly_chart(px.scatter(scatter_data, x="Latency (ms)", y="mAP50", text="Model", size=[20, 15],
+                                   title="2. Latency vs Accuracy (Sweet Spot Analysis)"))
+
+    st.divider()
+
+    # --- ROW 2: Distribution & Flow ---
+    r2_col1, r2_col2 = st.columns(2)
+
+    with r2_col1:
+        # 3. Wagon Wheel Radar Chart
+        fig_radar = go.Figure()
+        fig_radar.add_trace(go.Scatterpolar(r=comp_df["best.pt"][:4], theta=metrics[:4], fill='toself', name='best.pt'))
+        fig_radar.add_trace(go.Scatterpolar(r=comp_df["yolov8n.pt"][:4], theta=metrics[:4], fill='toself', name='yolov8n.pt'))
+        fig_radar.update_layout(title="3. Performance Radar (mAP/P/R)")
+        st.plotly_chart(fig_radar, use_container_width=True)
+
+    with r2_col2:
+        # 4. Metric Trend Line
+        st.plotly_chart(px.line(acc_df, x="Metric", y="Score", color="Model", markers=True, title="4. Performance Trend"))
+
+    # --- ROW 3: Advanced Analytics (Heatmaps & Distribution) ---
+    r3_col1, r3_col2 = st.columns(2)
+
+    with r3_col1:
+        # 5. Throughput Heatmap (FPS Analysis)
+        # FPS = 1000 / Latency
+        fps_data = [[1000/12.5, 1000/15], [1000/8.2, 1000/10]] # Sample hardware variations
+        st.plotly_chart(px.imshow(fps_data, labels=dict(x="Hardware", y="Model", color="FPS"),
+                                  x=['GPU (T4)', 'CPU'], y=['best.pt', 'yolov8n.pt'],
+                                  title="5. Throughput Heatmap (FPS)", text_auto=True))
+
+    with r3_col2:
+        # 6. Pie Distribution (Metric Weightage)
+        st.plotly_chart(px.pie(comp_df[comp_df["Metric"] != "Inference(ms)"], names="Metric", values="best.pt", 
+                               title="6. mAP Weightage Distribution", hole=0.4))
+
+    # --- ROW 4: Statistical Variations ---
+    r4_col1, r4_col2, r4_col3, r4_col4 = st.columns(4)
+
+    with r4_col1:
+        # 7. Box Plot
+        st.plotly_chart(px.box(df_melted, y="Score", color="Model", title="7. Score Spread"))
     
-    fig_radar = go.Figure()
-    fig_radar.add_trace(go.Scatterpolar(r=comp_df["best.pt"][:4], theta=metrics[:4], fill='toself', name='best.pt'))
-    fig_radar.add_trace(go.Scatterpolar(r=comp_df["yolov8n.pt"][:4], theta=metrics[:4], fill='toself', name='yolov8n.pt'))
-    st.plotly_chart(fig_radar) # 3. Wagon Wheel Radar
-    
-    st.plotly_chart(px.pie(comp_df, names="Metric", values="best.pt", title="6. Pie Distribution"))
-    st.plotly_chart(px.box(comp_df, y=["best.pt", "yolov8n.pt"], title="7. Box Plot"))
-    st.plotly_chart(px.histogram(comp_df, x="best.pt", title="8. Histogram"))
-    st.plotly_chart(px.violin(comp_df, y="best.pt", title="9. Violin Plot"))
-    st.plotly_chart(px.strip(comp_df, x="Metric", y="best.pt", title="10. Strip Plot"))
+    with r4_col2:
+        # 8. Histogram
+        st.plotly_chart(px.histogram(df_melted, x="Score", nbins=5, title="8. Value Dist."))
+
+    with r4_col3:
+        # 9. Violin Plot
+        st.plotly_chart(px.violin(df_melted, y="Score", box=True, title="9. Density"))
+
+    with r4_col4:
+        # 10. Strip Plot
+        st.plotly_chart(px.strip(df_melted, x="Model", y="Score", color="Metric", title="10. Metric Points"))
