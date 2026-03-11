@@ -141,9 +141,19 @@ elif page == "Upload & Detect":
                 tfile.write(file.read())
                 cap = cv2.VideoCapture(tfile.name)
                 
-                st_frame = st.empty()
+                # Column labels loop ke bahar set karein taaki flickering na ho
+                if compare:
+                    col1, col2 = st.columns(2)
+                    col1.markdown("### 🎯 Best Model")
+                    col2.markdown("### ⚡ Nano Model")
+                    st_frame1 = col1.empty()
+                    st_frame2 = col2.empty()
+                else:
+                    st_frame = st.empty()
+                
                 st_fps = st.empty()
                 
+                # Model ko loop ke bahar load karein (Performance ke liye)
                 m_best = YOLO("best.pt") if compare else None
                 m_nano = YOLO("yolov8n.pt") if compare else None
 
@@ -152,16 +162,22 @@ elif page == "Upload & Detect":
                     if not ret: break
                     
                     start_t = time.time()
+                    
                     if compare:
-                        r1, r2 = m_best(frame, verbose=False), m_nano(frame, verbose=False)
-                        combined = np.hstack((apply_supervision(frame, r1), apply_supervision(frame, r2)))
-                        st_frame.image(cv2.cvtColor(combined, cv2.COLOR_BGR2RGB), use_container_width=True)
+                        # Dono models se inference lein
+                        r1 = m_best(frame, verbose=False)
+                        r2 = m_nano(frame, verbose=False)
+                        
+                        # Alag-alag placeholders mein update karein
+                        st_frame1.image(cv2.cvtColor(apply_supervision(frame.copy(), r1), cv2.COLOR_BGR2RGB))
+                        st_frame2.image(cv2.cvtColor(apply_supervision(frame.copy(), r2), cv2.COLOR_BGR2RGB))
                     else:
                         res = st.session_state.model(frame, verbose=False)
                         st_frame.image(cv2.cvtColor(apply_supervision(frame, res), cv2.COLOR_BGR2RGB), use_container_width=True)
                     
                     dt = time.time() - start_t
                     st_fps.plotly_chart(get_fps_chart(dt), use_container_width=True)
+                    
                 cap.release()
 
             # --- IMAGE HANDLING ---
