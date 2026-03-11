@@ -264,11 +264,11 @@ elif page == "Evaluation Dashboard":
         with tab2:
             col_a, col_b = st.columns(2)
             with col_a:
-                if os.path.exists("analysis/F1_curve.png"):
-                    st.image("analysis/F1_curve.png", caption="F1 Confidence Curve", use_container_width=True)
+                if os.path.exists("analysis/BoxF1_curve.png"):
+                    st.image("analysis/BoxF1_curve.png", caption="F1 Confidence Curve", use_container_width=True)
             with col_b:
-                if os.path.exists("analysis/PR_curve.png"):
-                    st.image("analysis/PR_curve.png", caption="Precision-Recall Curve", use_container_width=True)
+                if os.path.exists("analysis/BoxPR_curve.png"):
+                    st.image("analysis/BoxPR_curve.png", caption="Precision-Recall Curve", use_container_width=True)
 
         with tab3:
             # Training ke dauran jo batch predictions save hote hain
@@ -276,7 +276,7 @@ elif page == "Evaluation Dashboard":
                 st.image("analysis/val_batch0_labels.jpg", caption="Ground Truth vs Predictions", use_container_width=True)
 
     else:
-        st.error("Results file (results.csv) missing in 'analysis/' folder. Please train the model first.")
+        st.error("Results file (analysis/results.csv) missing in 'analysis/' folder. Please train the model first.")
 
 elif page == "Model Comparison":
     st.title("🚀 Ashu YOLO AI - 10-Graph Benchmarking")
