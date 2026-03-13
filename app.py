@@ -236,7 +236,8 @@ elif page == "Upload & Detect":
 
 elif page == "Webcam Detection":
     st.title("📷 Ashu YOLO AI - Live Stream")
-    if not st.session_state.model: st.warning("Load model first!")
+    if not st.session_state.model:
+        st.warning("Load model first!")
     else:
         class VideoProcessor(VideoProcessorBase):
             def recv(self, frame):
@@ -244,8 +245,13 @@ elif page == "Webcam Detection":
                 res = st.session_state.model(img)
                 return av.VideoFrame.from_ndarray(apply_supervision(img, res), format="bgr24")
 
-        webrtc_streamer(key="webcam", video_processor_factory=VideoProcessor, 
-                        rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}))
+        webrtc_streamer(
+            key="webcam",
+            video_processor_factory=VideoProcessor,
+            rtc_configuration=RTCConfiguration(
+                {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+            )
+        )
 
 elif page == "Evaluation Dashboard":
     st.title("📊 Ashu YOLO AI - Evaluation")
