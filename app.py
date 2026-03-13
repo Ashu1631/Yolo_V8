@@ -237,7 +237,7 @@ elif page == "Upload & Detect":
 if page == "Webcam Detection":
     st.title("📷 Ashu YOLO AI - Live Stream")
 
-    if not st.session_state.model:
+   if not st.session_state.model:
         st.warning("Please load the model from the sidebar first!")
     else:
 
