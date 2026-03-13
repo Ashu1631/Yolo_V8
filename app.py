@@ -75,7 +75,7 @@ if not st.session_state.logged_in:
         u = st.text_input("Username", placeholder="Enter admin username")
         p = st.text_input("Password", type="password", placeholder="Enter password")
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🚀 Access Dashboard", use_container_width=True):
+        if st.button("Login", use_container_width=True):
             if u == "admin" and p == "ashu@123":
                 st.session_state.logged_in = True
                 st.rerun()
