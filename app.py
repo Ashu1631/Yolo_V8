@@ -315,7 +315,7 @@ elif page == "Evaluation Dashboard":
 
     # --- PAGE: WEBCAM DETECTION ---
 elif_page = "Webcam Detection"
-    if not st.session_state.model:
+   if not st.session_state.model:
         st.warning("Load model first!")
     else:
         class VideoProcessor(VideoProcessorBase):
