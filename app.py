@@ -85,12 +85,33 @@ if not st.session_state.logged_in:
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 # ================= SIDEBAR NAVIGATION =================
+# ================= SIDEBAR NAVIGATION =================
 pages = ["Model Selection", "Upload & Detect", "Webcam Detection", "Evaluation Dashboard", "Failure Cases", "Model Comparison"]
 st.sidebar.markdown("## 🚀 Navigation")
+
 for p in pages:
     selected = st.session_state.page == p
-    color = "#28a745" if selected else "#dc3545"
-    st.sidebar.markdown(f"<style>button[key='nav_{p}'] {{ background-color: {color} !important; color: white !important; border-radius: 10px !important; cursor: pointer !important; height: 48px !important; }}</style>", unsafe_allow_html=True)
+    # Dynamic Color: Selected -> Green (#28a745), Unselected -> Red (#dc3545)
+    btn_color = "#28a745" if selected else "#dc3545"
+    
+    # CSS injection for each specific button based on its key
+    st.sidebar.markdown(f"""
+        <style>
+        div.stButton > button[key='nav_{p}'] {{
+            background-color: {btn_color} !important;
+            color: white !important;
+            border-radius: 10px !important;
+            border: 1px solid rgba(255,255,255,0.1) !important;
+            height: 45px !important;
+            transition: all 0.3s ease;
+        }}
+        div.stButton > button[key='nav_{p}']:hover {{
+            border: 1px solid white !important;
+            opacity: 0.9;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+
     if st.sidebar.button(p, key=f"nav_{p}", use_container_width=True):
         st.session_state.page = p
         st.rerun()
