@@ -305,10 +305,8 @@ elif page == "Evaluation Dashboard":
         st.error("Results file (analysis/results.csv) missing in 'analysis/' folder. Please train the model first.")
 
     # --- PAGE: WEBCAM DETECTION ---
-elif st.session_state.get('page') == "webcam":
-    st.header(f"Live Stream - Using: {st.session_state.model_name}")
+elif_page = "Webcam Detection"
 
-   elif_page = "Webcam Detection"
 if elif_page == "Webcam Detection":
     st.title("📷 Ashu YOLO AI - Live Stream")
     if not st.session_state.model:
@@ -324,10 +322,9 @@ if elif_page == "Webcam Detection":
             key="webcam",
             video_processor_factory=VideoProcessor,
             rtc_configuration=RTCConfiguration(
-                {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+                {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"}]}]
             )
         )
-
         
 elif page == "Model Comparison":
     st.title("🚀 Ashu YOLO AI - 10-Graph Benchmarking")
