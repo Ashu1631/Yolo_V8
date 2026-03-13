@@ -84,7 +84,7 @@ if not st.session_state.logged_in:
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 # ================= SIDEBAR NAVIGATION =================
-pages = ["Model Selection", "Upload & Detect", "Webcam Detection", "Evaluation Dashboard", "Model Comparison"]
+pages = ["Model Selection", "Upload & Detect", "Evaluation Dashboard", "Model Comparison"]
 st.sidebar.markdown("## 🚀 Navigation")
 
 for p in pages:
@@ -233,28 +233,6 @@ elif page == "Upload & Detect":
                 
                 # Dataset FPS Graph
                 st.plotly_chart(get_fps_chart(dt_ds))
-
-if page == "Webcam Detection":
-    st.title("📷 Ashu YOLO AI - Live Stream")
-
-   if not st.session_state.model:
-        st.warning("Please load the model from the sidebar first!")
-    else:
-
-        class VideoProcessor(VideoProcessorBase):
-            def recv(self, frame):
-                img = frame.to_ndarray(format="bgr24")
-                # Ensure model is available here
-                res = st.session_state.model(img)
-                return av.VideoFrame.from_ndarray(apply_supervision(img, res), format="bgr24")
-
-        webrtc_streamer(
-            key="webcam",
-            video_processor_factory=VideoProcessor,
-            rtc_configuration=RTCConfiguration(
-                {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
-            )
-        )
 
 elif page == "Evaluation Dashboard":
     st.title("📊 Ashu YOLO AI - Evaluation")
