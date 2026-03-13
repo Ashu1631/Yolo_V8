@@ -291,25 +291,6 @@ elif page == "Evaluation Dashboard":
     else:
         st.error("Results file (analysis/results.csv) missing in 'analysis/' folder. Please train the model first.")
 
-    # --- PAGE: WEBCAM DETECTION ---
-elif_page = "Webcam Detection"
-   if not st.session_state.model:
-        st.warning("Load model first!")
-    else:
-        class VideoProcessor(VideoProcessorBase):
-            def recv(self, frame):
-                img = frame.to_ndarray(format="bgr24")
-                res = st.session_state.model(img)
-                return av.VideoFrame.from_ndarray(apply_supervision(img, res), format="bgr24")
-
-        webrtc_streamer(
-            key="webcam",
-            video_processor_factory=VideoProcessor,
-            rtc_configuration=RTCConfiguration(
-                {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
-            )
-        )
-        
 elif page == "Model Comparison":
     st.title("🚀 Ashu YOLO AI - 10-Graph Benchmarking")
     st.markdown("⚖️ Model Benchmarking (10-Graph Matrix) Advanced Plotly visualizations for Latency, Accuracy, and Throughput.")
