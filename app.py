@@ -308,28 +308,26 @@ elif page == "Evaluation Dashboard":
 elif st.session_state.get('page') == "webcam":
     st.header(f"Live Stream - Using: {st.session_state.model_name}")
 
-    if st.session_state.model is None:
-        st.warning("Pehle 'Model Selection' mein jaakar model select karein!")
+   elif_page = "Webcam Detection"
+if elif_page == "Webcam Detection":
+    st.title("📷 Ashu YOLO AI - Live Stream")
+    if not st.session_state.model:
+        st.warning("Load model first!")
     else:
-        # Video processing class
-        class VideoProcessor:
+        class VideoProcessor(VideoProcessorBase):
             def recv(self, frame):
                 img = frame.to_ndarray(format="bgr24")
-                
-                # Jo model session state mein hai, wahi use hoga
-                results = st.session_state.model(img)[0]
-                annotated_frame = results.plot()
+                res = st.session_state.model(img)
+                return av.VideoFrame.from_ndarray(apply_supervision(img, res), format="bgr24")
 
-                return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
-
-        # Streaming component
         webrtc_streamer(
-            key="yolo-live",
+            key="webcam",
             video_processor_factory=VideoProcessor,
-            rtc_configuration={
-                "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
-            }
+            rtc_configuration=RTCConfiguration(
+                {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+            )
         )
+
         
 elif page == "Model Comparison":
     st.title("🚀 Ashu YOLO AI - 10-Graph Benchmarking")
