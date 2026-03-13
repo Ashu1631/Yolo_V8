@@ -71,7 +71,6 @@ if not st.session_state.logged_in:
     
     with col2:
         # Wrap everything in a single custom div
-        st.markdown('<div class="login-box">', unsafe_allow_html=True)
         st.markdown("<h2>🎯 ASHU YOLO AI</h2>", unsafe_allow_html=True)
         u = st.text_input("Username", placeholder="Enter admin username")
         p = st.text_input("Password", type="password", placeholder="Enter password")
