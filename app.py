@@ -252,9 +252,6 @@ if not st.session_state.model:
             rtc_configuration=RTCConfiguration(
                 {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
             )
-        )
-
-
 
 elif page == "Evaluation Dashboard":
     st.title("📊 Ashu YOLO AI - Evaluation")
