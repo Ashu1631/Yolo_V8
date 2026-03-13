@@ -172,7 +172,6 @@ elif page == "Upload & Detect":
                 
                 st_fps = st.empty()
                 
-                # Model ko loop ke bahar load karein (Performance ke liye)
                 m_best = YOLO("best.pt") if compare else None
                 m_nano = YOLO("yolov8n.pt") if compare else None
 
@@ -183,11 +182,9 @@ elif page == "Upload & Detect":
                     start_t = time.time()
                     
                     if compare:
-                        # Dono models se inference lein
                         r1 = m_best(frame, verbose=False)
                         r2 = m_nano(frame, verbose=False)
                         
-                        # Alag-alag placeholders mein update karein
                         st_frame1.image(cv2.cvtColor(apply_supervision(frame.copy(), r1), cv2.COLOR_BGR2RGB))
                         st_frame2.image(cv2.cvtColor(apply_supervision(frame.copy(), r2), cv2.COLOR_BGR2RGB))
                     else:
@@ -213,7 +210,6 @@ elif page == "Upload & Detect":
                 
                 st.plotly_chart(get_fps_chart(time.time() - start_t))
             
-            # Video logic same rahegi...
 
     with tab2:
         if os.path.exists("datasets"):
@@ -308,6 +304,33 @@ elif page == "Evaluation Dashboard":
     else:
         st.error("Results file (analysis/results.csv) missing in 'analysis/' folder. Please train the model first.")
 
+    # --- PAGE: WEBCAM DETECTION ---
+elif st.session_state.get('page') == "webcam":
+    st.header(f"Live Stream - Using: {st.session_state.model_name}")
+
+    if st.session_state.model is None:
+        st.warning("Pehle 'Model Selection' mein jaakar model select karein!")
+    else:
+        # Video processing class
+        class VideoProcessor:
+            def recv(self, frame):
+                img = frame.to_ndarray(format="bgr24")
+                
+                # Jo model session state mein hai, wahi use hoga
+                results = st.session_state.model(img)[0]
+                annotated_frame = results.plot()
+
+                return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
+
+        # Streaming component
+        webrtc_streamer(
+            key="yolo-live",
+            video_processor_factory=VideoProcessor,
+            rtc_configuration={
+                "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+            }
+        )
+        
 elif page == "Model Comparison":
     st.title("🚀 Ashu YOLO AI - 10-Graph Benchmarking")
     st.markdown("⚖️ Model Benchmarking (10-Graph Matrix) Advanced Plotly visualizations for Latency, Accuracy, and Throughput.")
