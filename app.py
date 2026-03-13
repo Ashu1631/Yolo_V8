@@ -234,8 +234,9 @@ elif page == "Upload & Detect":
                 # Dataset FPS Graph
                 st.plotly_chart(get_fps_chart(dt_ds))
 
-elif page == "Webcam Detection":
+if page == "Webcam Detection":
     st.title("📷 Ashu YOLO AI - Live Stream")
+
     if not st.session_state.model:
         st.warning("Load model first!")
     else:
@@ -252,6 +253,8 @@ elif page == "Webcam Detection":
                 {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
             )
         )
+
+
 
 elif page == "Evaluation Dashboard":
     st.title("📊 Ashu YOLO AI - Evaluation")
