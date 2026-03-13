@@ -306,9 +306,6 @@ elif page == "Evaluation Dashboard":
 
     # --- PAGE: WEBCAM DETECTION ---
 elif_page = "Webcam Detection"
-
-if elif_page == "Webcam Detection":
-    st.title("📷 Ashu YOLO AI - Live Stream")
     if not st.session_state.model:
         st.warning("Load model first!")
     else:
