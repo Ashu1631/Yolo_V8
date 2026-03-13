@@ -288,7 +288,7 @@ elif page == "Evaluation Dashboard":
         # --- Section 3: Professional Curves (Images) ---
         st.subheader("🖼️ Detailed Analysis Curves")
         
-        tab1, tab2, tab3 = st.tabs(["Confusion Matrix", "F1 & PR Curves"])
+        tab1, tab2 = st.tabs(["Confusion Matrix", "F1 & PR Curves"])
 
         with tab1:
             if os.path.exists("analysis/confusion_matrix.png"):
