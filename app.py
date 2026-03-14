@@ -84,7 +84,7 @@ if not st.session_state.logged_in:
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 # ================= SIDEBAR NAVIGATION =================
-pages = ["Model Selection", "Upload & Detect", "Evaluation Dashboard", "Model Comparison", "Webcam Processor"]
+pages = ["Model Selection", "Upload & Detect", "Evaluation Dashboard", "Failure Cases", "Model Comparison"]
 st.sidebar.markdown("## 🚀 Navigation")
 
 for p in pages:
@@ -142,11 +142,10 @@ if page == "Model Selection":
         st.session_state.model_name = sel
         st.session_state.page = "Upload & Detect"; st.rerun()
 
+# 2. UPLOAD & DETECT
 elif page == "Upload & Detect":
     st.title("📤 Analysis Hub - Ashu YOLO AI")
-    if not st.session_state.model: 
-        st.warning("⚠️ Model load karein!")
-        st.stop()
+    if not st.session_state.model: st.warning("⚠️ Model load karein!"); st.stop()
     
     tab1, tab2 = st.tabs(["📤 File Upload", "📂 Dataset Explorer"])
     
@@ -155,31 +154,40 @@ elif page == "Upload & Detect":
         if file:
             compare = st.checkbox("🔄 Enable Comparison (best.pt vs yolov8n.pt)")
             
+            # --- VIDEO HANDLING ---
             if file.name.lower().endswith(".mp4"):
                 tfile = tempfile.NamedTemporaryFile(delete=False) 
                 tfile.write(file.read())
                 cap = cv2.VideoCapture(tfile.name)
                 
-                m_best = YOLO("best.pt") if compare else None
-                m_nano = YOLO("yolov8n.pt") if compare else None
-                
+                # Column labels loop ke bahar set karein taaki flickering na ho
                 if compare:
                     col1, col2 = st.columns(2)
+                    col1.markdown("### 🎯 Best Model")
+                    col2.markdown("### ⚡ Nano Model")
                     st_frame1 = col1.empty()
                     st_frame2 = col2.empty()
                 else:
                     st_frame = st.empty()
                 
                 st_fps = st.empty()
-                frame_count = 0
+                
+                # Model ko loop ke bahar load karein (Performance ke liye)
+                m_best = YOLO("best.pt") if compare else None
+                m_nano = YOLO("yolov8n.pt") if compare else None
 
                 while cap.isOpened():
                     ret, frame = cap.read()
                     if not ret: break
+                    
                     start_t = time.time()
+                    
                     if compare:
+                        # Dono models se inference lein
                         r1 = m_best(frame, verbose=False)
                         r2 = m_nano(frame, verbose=False)
+                        
+                        # Alag-alag placeholders mein update karein
                         st_frame1.image(cv2.cvtColor(apply_supervision(frame.copy(), r1), cv2.COLOR_BGR2RGB))
                         st_frame2.image(cv2.cvtColor(apply_supervision(frame.copy(), r2), cv2.COLOR_BGR2RGB))
                     else:
@@ -187,22 +195,25 @@ elif page == "Upload & Detect":
                         st_frame.image(cv2.cvtColor(apply_supervision(frame, res), cv2.COLOR_BGR2RGB), use_container_width=True)
                     
                     dt = time.time() - start_t
-                    with st_fps.container():
-                        st.plotly_chart(get_fps_chart(dt), use_container_width=True, key=f"fps_v_{frame_count}")
-                    frame_count += 1
+                    st_fps.plotly_chart(get_fps_chart(dt), use_container_width=True)
+                    
                 cap.release()
-            
+
+            # --- IMAGE HANDLING ---
             else:
                 img = cv2.imdecode(np.frombuffer(file.read(), np.uint8), 1)
                 start_t = time.time()
                 if compare:
                     c1, c2 = st.columns(2)
-                    c1.image(cv2.cvtColor(apply_supervision(img.copy(), YOLO("best.pt")(img)), cv2.COLOR_BGR2RGB), caption="Best Model")
-                    c2.image(cv2.cvtColor(apply_supervision(img.copy(), YOLO("yolov8n.pt")(img)), cv2.COLOR_BGR2RGB), caption="Nano Model")
+                    c1.image(cv2.cvtColor(apply_supervision(img, YOLO("best.pt")(img)), cv2.COLOR_BGR2RGB), caption="Best Model")
+                    c2.image(cv2.cvtColor(apply_supervision(img, YOLO("yolov8n.pt")(img)), cv2.COLOR_BGR2RGB), caption="Nano Model")
                 else:
                     res = st.session_state.model(img)
                     st.image(cv2.cvtColor(apply_supervision(img, res), cv2.COLOR_BGR2RGB), use_container_width=True)
-                st.plotly_chart(get_fps_chart(time.time() - start_t), key="fps_img")
+                
+                st.plotly_chart(get_fps_chart(time.time() - start_t))
+            
+            # Video logic same rahegi...
 
     with tab2:
         if os.path.exists("datasets"):
@@ -264,7 +275,7 @@ elif page == "Evaluation Dashboard":
         # --- Section 3: Professional Curves (Images) ---
         st.subheader("🖼️ Detailed Analysis Curves")
         
-        tab1, tab2 = st.tabs(["Confusion Matrix", "F1 & PR Curves"])
+        tab1, tab2, tab3 = st.tabs(["Confusion Matrix", "F1 & PR Curves"])
 
         with tab1:
             if os.path.exists("analysis/confusion_matrix.png"):
@@ -371,42 +382,3 @@ elif page == "Model Comparison":
     with r4_col4:
         # 10. Strip Plot
         st.plotly_chart(px.strip(df_melted, x="Model", y="Score", color="Metric", title="10. Metric Points"))
-# --- Webcam Processor ---
-# ================= WEBCAM PROCESSOR PAGE =================
-elif page == "Webcam Processor":
-    st.title("🎥 Real-Time Webcam Detection")
-
-    if "model" not in st.session_state or st.session_state.model is None:
-        st.error("⚠️ Model not found! Please select a model on the Setup page.")
-        st.stop()
-
-    # YAHAN FIX HAI: Model ko ek local variable mein pehle hi nikaal lein
-    current_model = st.session_state.model
-
-    # webrtc_streamer setup
-    webrtc_streamer(
-        key="yolo-fixed",
-        # Lambda ke bajaye direct class pass karein aur model local variable se dein
-        video_processor_factory=lambda: VideoProcessor(current_model), 
-        rtc_configuration={
-            "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
-        },
-        media_stream_constraints={"video": True, "audio": False},
-        async_processing=True,
-    )
-# ================= VIDEO PROCESSOR CLASS =================
-class VideoProcessor(VideoProcessorBase):
-    def __init__(self, model_instance):
-        self.model = model_instance
-
-    def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
-        img = frame.to_ndarray(format="bgr24")
-        
-        # Inference
-        if self.model:
-            results = self.model(img, conf=0.4, verbose=False)
-            annotated_img = results[0].plot()
-        else:
-            annotated_img = img
-
-        return av.VideoFrame.from_ndarray(annotated_img, format="bgr24")
