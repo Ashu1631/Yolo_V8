@@ -103,7 +103,7 @@ if not st.session_state.logged_in:
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 # ================= SIDEBAR NAVIGATION =================
-pages = ["Model Selection", "Upload & Detect", "Evaluation Dashboard", "Model Comparison", "Webcam Processor"]
+pages = ["Model Selection", "Upload & Detect", "Evaluation Dashboard", "Model Comparison"]
 st.sidebar.markdown("## 🚀 Navigation")
 
 for p in pages:
@@ -401,26 +401,3 @@ elif page == "Model Comparison":
     with r4_col4:
         # 10. Strip Plot
         st.plotly_chart(px.strip(df_melted, x="Model", y="Score", color="Metric", title="10. Metric Points"))
-
-# --- Webcam Processor Class ---
-elif current_page == "Webcam Processor":
-    st.title("🎥 Real-Time Detection")
-    st.markdown("---")
-    
-    if st.session_state.model is None:
-        st.warning("⚠️ Please select a model on the 'Model Selection' page first!")
-    else:
-        st.info(f"Active Model: {os.path.basename(st.session_state.model.ckpt_path)}")
-        
-        # WEBCAM LOGIC (Sirf isi block ke andar chalega)
-        active_model = st.session_state.model
-        
-        webrtc_streamer(
-            key="yolo-v3-final-stable", # Unique key to prevent cache issues
-            video_processor_factory=lambda: VideoProcessor(active_model),
-            rtc_configuration={
-                "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
-            },
-            media_stream_constraints={"video": True, "audio": False},
-            async_processing=True,
-        )
