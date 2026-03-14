@@ -9,7 +9,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from ultralytics import YOLO
 import supervision as sv
-from streamlit_webrtc import webrtc_streamer, VideoProcessor, RTCConfiguration
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
 import av
 
 # --- Page Config ---
