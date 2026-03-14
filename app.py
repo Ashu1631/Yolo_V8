@@ -84,7 +84,7 @@ if not st.session_state.logged_in:
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 # ================= SIDEBAR NAVIGATION =================
-pages = ["Model Selection", "Upload & Detect", "Evaluation Dashboard", "Model Comparison", "Webcam Detection"]
+pages = ["Model Selection", "Upload & Detect", "Evaluation Dashboard", "Model Comparison", "Webcam Processor"]
 st.sidebar.markdown("## 🚀 Navigation")
 
 for p in pages:
