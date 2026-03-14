@@ -9,17 +9,16 @@ import plotly.express as px
 import plotly.graph_objects as go
 from ultralytics import YOLO
 import supervision as sv
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
+from streamlit_webrtc import webrtc_streamer, VideoProcessor, RTCConfiguration
 import av
 
 # --- Page Config ---
 st.set_page_config(page_title="Ashu YOLO AI", layout="wide", page_icon="🎯")
 
 # --- Session State ---
-if "logged_in" not in st.session_state: st.session_state.logged_in = False
 if "page" not in st.session_state: st.session_state.page = "Model Selection"
 if "model" not in st.session_state: st.session_state.model = None
-
+    
 # ================= LOGIN PAGE =================
 if not st.session_state.logged_in:
     st.markdown("""
