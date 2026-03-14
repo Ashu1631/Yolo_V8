@@ -190,7 +190,7 @@ if file.name.lower().endswith(".mp4"):
                         res = st.session_state.model(frame, verbose=False)
                         st_frame.image(cv2.cvtColor(apply_supervision(frame, res), cv2.COLOR_BGR2RGB), use_container_width=True)
                 
-                   dt = time.time() - start_t
+                    dt = time.time() - start_t
                 
                 # Plotly chart unique key ke saath
                   with st_fps.container():
