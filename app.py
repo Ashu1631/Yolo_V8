@@ -155,11 +155,11 @@ elif page == "Upload & Detect":
             compare = st.checkbox("🔄 Enable Comparison (best.pt vs yolov8n.pt)")
             
             # --- VIDEO HANDLING ---
- if file.name.lower().endswith(".mp4"):
-            tfile = tempfile.NamedTemporaryFile(delete=False) 
-            tfile.write(file.read())
-            cap = cv2.VideoCapture(tfile.name)
-            
+if file.name.lower().endswith(".mp4"):
+    tfile = tempfile.NamedTemporaryFile(delete=False) 
+    tfile.write(file.read())
+    cap = cv2.VideoCapture(tfile.name)
+    
             if compare:
                 col1, col2 = st.columns(2)
                 col1.markdown("### 🎯 Best Model")
