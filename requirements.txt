@@ -1,7 +1,7 @@
 streamlit
 ultralytics
 streamlit-webrtc
-supervision
+supervision==0.18.0
 av
 opencv-python-headless
 pandas
