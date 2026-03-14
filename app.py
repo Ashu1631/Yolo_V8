@@ -172,31 +172,31 @@ if file.name.lower().endswith(".mp4"):
                 st_fps = st.empty()
             
             # Counter for unique keys to fix DuplicateElementId
-            frame_count = 0
+                frame_count = 0
 
-            while cap.isOpened():
-                ret, frame = cap.read()
-                if not ret: break
+                while cap.isOpened():
+                    ret, frame = cap.read()
+                    if not ret: break
+                       break
+                    start_t = time.time()
                 
-                start_t = time.time()
-                
-                if compare:
-                    r1 = m_best(frame, verbose=False)
-                    r2 = m_nano(frame, verbose=False)
+                    if compare:
+                        r1 = m_best(frame, verbose=False)
+                        r2 = m_nano(frame, verbose=False)
                     
-                    st_frame1.image(cv2.cvtColor(apply_supervision(frame.copy(), r1), cv2.COLOR_BGR2RGB))
-                    st_frame2.image(cv2.cvtColor(apply_supervision(frame.copy(), r2), cv2.COLOR_BGR2RGB))
-                else:
-                    res = st.session_state.model(frame, verbose=False)
-                    st_frame.image(cv2.cvtColor(apply_supervision(frame, res), cv2.COLOR_BGR2RGB), use_container_width=True)
+                        st_frame1.image(cv2.cvtColor(apply_supervision(frame.copy(), r1), cv2.COLOR_BGR2RGB))
+                        st_frame2.image(cv2.cvtColor(apply_supervision(frame.copy(), r2), cv2.COLOR_BGR2RGB))
+                   else:
+                        res = st.session_state.model(frame, verbose=False)
+                        st_frame.image(cv2.cvtColor(apply_supervision(frame, res), cv2.COLOR_BGR2RGB), use_container_width=True)
                 
-                dt = time.time() - start_t
+                   dt = time.time() - start_t
                 
                 # Plotly chart unique key ke saath
-                with st_fps.container():
-                    st.plotly_chart(get_fps_chart(dt), use_container_width=True, key=f"fps_{frame_count}")
+                  with st_fps.container():
+                       st.plotly_chart(get_fps_chart(dt), use_container_width=True, key=f"fps_{frame_count}")
                 
-                frame_count += 1
+                  frame_count += 1
                 
             cap.release()
             
