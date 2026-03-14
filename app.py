@@ -84,7 +84,7 @@ if not st.session_state.logged_in:
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 # ================= SIDEBAR NAVIGATION =================
-pages = ["Model Selection", "Upload & Detect", "Evaluation Dashboard", "Model Comparison"]
+pages = ["Model Selection", "Upload & Detect", "Evaluation Dashboard", "Model Comparison", "Webcam Processor"]
 st.sidebar.markdown("## 🚀 Navigation")
 
 for p in pages:
@@ -382,3 +382,30 @@ elif page == "Model Comparison":
     with r4_col4:
         # 10. Strip Plot
         st.plotly_chart(px.strip(df_melted, x="Model", y="Score", color="Metric", title="10. Metric Points"))
+
+# --- Webcam Processor Class ---
+class VideoProcessor(VideoProcessorBase):
+    def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
+        img = frame.to_ndarray(format="bgr24")
+
+        # YOLO Detection logic
+        results = model(img, conf=0.5) # Confidence 0.5 rakha hai
+        annotated_img = results[0].plot()
+
+        return av.VideoFrame.from_ndarray(annotated_img, format="bgr24")
+
+# --- WebRTC Streamer ---
+# STUN servers help in connecting the webcam over the internet
+RTC_CONFIGURATION = RTCConfiguration(
+    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+)
+
+webrtc_streamer(
+    key="yolo-detection",
+    video_processor_factory=VideoProcessor,
+    rtc_configuration=RTC_CONFIGURATION,
+    media_stream_constraints={"video": True, "audio": False},
+    async_processing=True,
+)
+
+st.write("Click 'Start' to begin webcam detection.")
