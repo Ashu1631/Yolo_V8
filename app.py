@@ -404,7 +404,7 @@ elif page == "Model Comparison":
 
 # --- Webcam Processor Class ---
 elif current_page == "Webcam Processor":
-    st.title("🎥 Real-Time Webcam Detection")
+    st.title("🎥 Real-Time Detection")
     st.markdown("---")
     
     if st.session_state.model is None:
