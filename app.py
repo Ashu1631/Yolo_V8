@@ -156,34 +156,38 @@ elif page == "Upload & Detect":
             
             # --- VIDEO HANDLING ---
 if file.name.lower().endswith(".mp4"):
-    tfile = tempfile.NamedTemporaryFile(delete=False) 
-    tfile.write(file.read())
-    cap = cv2.VideoCapture(tfile.name)
-    
-    if compare:
-                col1, col2 = st.columns(2)
-                col1.markdown("### 🎯 Best Model")
-                col2.markdown("### ⚡ Nano Model")
-                st_frame1 = col1.empty()
-                st_frame2 = col2.empty()
-    else:
-                st_frame = st.empty()
-            
+                tfile = tempfile.NamedTemporaryFile(delete=False) 
+                tfile.write(file.read())
+                cap = cv2.VideoCapture(tfile.name)
+                
+                # Compare models ko loop ke bahar initialize karein
+                m_best = YOLO("best.pt") if compare else None
+                m_nano = YOLO("yolov8n.pt") if compare else None
+                
+                if compare:
+                    col1, col2 = st.columns(2)
+                    col1.markdown("### 🎯 Best Model")
+                    col2.markdown("### ⚡ Nano Model")
+                    st_frame1 = col1.empty()
+                    st_frame2 = col2.empty()
+                else:
+                    st_frame = st.empty()
+                
                 st_fps = st.empty()
-            
-            # Counter for unique keys to fix DuplicateElementId
                 frame_count = 0
 
                 while cap.isOpened():
                     ret, frame = cap.read()
-                    if not ret: break
+                    if not ret: 
+                        break
 
                     start_t = time.time()
                 
                     if compare:
                         r1 = m_best(frame, verbose=False)
                         r2 = m_nano(frame, verbose=False)
-                    
+                        
+                        # Annotated frames display
                         st_frame1.image(cv2.cvtColor(apply_supervision(frame.copy(), r1), cv2.COLOR_BGR2RGB))
                         st_frame2.image(cv2.cvtColor(apply_supervision(frame.copy(), r2), cv2.COLOR_BGR2RGB))
                     else:
@@ -192,13 +196,13 @@ if file.name.lower().endswith(".mp4"):
                 
                     dt = time.time() - start_t
                 
-                # Plotly chart unique key ke saath
+                    # Plotly chart unique key ke saath (Duplicate ID fix)
                     with st_fps.container():
-                        st.plotly_chart(get_fps_chart(dt), use_container_width=True, key=f"fps_{frame_count}")
+                        st.plotly_chart(get_fps_chart(dt), use_container_width=True, key=f"fps_video_{frame_count}")
                 
                     frame_count += 1
                 
-                    cap.release()
+                cap.release()
             
             # --- IMAGE HANDLING ---
             else:
@@ -206,14 +210,13 @@ if file.name.lower().endswith(".mp4"):
                 start_t = time.time()
                 if compare:
                     c1, c2 = st.columns(2)
-                    c1.image(cv2.cvtColor(apply_supervision(img, YOLO("best.pt")(img)), cv2.COLOR_BGR2RGB), caption="Best Model")
-                    c2.image(cv2.cvtColor(apply_supervision(img, YOLO("yolov8n.pt")(img)), cv2.COLOR_BGR2RGB), caption="Nano Model")
+                    c1.image(cv2.cvtColor(apply_supervision(img.copy(), YOLO("best.pt")(img)), cv2.COLOR_BGR2RGB), caption="Best Model")
+                    c2.image(cv2.cvtColor(apply_supervision(img.copy(), YOLO("yolov8n.pt")(img)), cv2.COLOR_BGR2RGB), caption="Nano Model")
                 else:
                     res = st.session_state.model(img)
                     st.image(cv2.cvtColor(apply_supervision(img, res), cv2.COLOR_BGR2RGB), use_container_width=True)
                 
-                st.plotly_chart(get_fps_chart(time.time() - start_t))
-            
+                st.plotly_chart(get_fps_chart(time.time() - start_t), key="fps_static_img")
 
     with tab2:
         if os.path.exists("datasets"):
