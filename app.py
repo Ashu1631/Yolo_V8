@@ -193,8 +193,8 @@ if file.name.lower().endswith(".mp4"):
                     dt = time.time() - start_t
                 
                 # Plotly chart unique key ke saath
-                  with st_fps.container():
-                       st.plotly_chart(get_fps_chart(dt), use_container_width=True, key=f"fps_{frame_count}")
+                    with st_fps.container():
+                        st.plotly_chart(get_fps_chart(dt), use_container_width=True, key=f"fps_{frame_count}")
                 
                   frame_count += 1
                 
