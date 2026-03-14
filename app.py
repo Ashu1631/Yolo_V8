@@ -166,7 +166,7 @@ if file.name.lower().endswith(".mp4"):
                 col2.markdown("### ⚡ Nano Model")
                 st_frame1 = col1.empty()
                 st_frame2 = col2.empty()
-            else:
+    else:
                 st_frame = st.empty()
             
             st_fps = st.empty()
