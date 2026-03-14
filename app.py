@@ -156,16 +156,16 @@ elif page == "Upload & Detect":
             
             # --- VIDEO HANDLING ---
             if file.name.lower().endswith(".mp4"):
-    tfile = tempfile.NamedTemporaryFile(delete=False) 
-    tfile.write(file.read())
-    cap = cv2.VideoCapture(tfile.name)
+                tfile = tempfile.NamedTemporaryFile(delete=False) 
+                tfile.write(file.read())
+                cap = cv2.VideoCapture(tfile.name)
     
-    if compare:
-        col1, col2 = st.columns(2)
-        col1.markdown("### 🎯 Best Model")
-        col2.markdown("### ⚡ Nano Model")
-        st_frame1 = col1.empty()
-        st_frame2 = col2.empty()
+                if compare:
+                col1, col2 = st.columns(2)
+                col1.markdown("### 🎯 Best Model")
+                col2.markdown("### ⚡ Nano Model")
+                st_frame1 = col1.empty()
+                st_frame2 = col2.empty()
     else:
         st_frame = st.empty()
     
