@@ -177,7 +177,7 @@ if file.name.lower().endswith(".mp4"):
                 while cap.isOpened():
                     ret, frame = cap.read()
                     if not ret: break
-                       break
+
                     start_t = time.time()
                 
                     if compare:
