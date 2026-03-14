@@ -155,60 +155,51 @@ elif page == "Upload & Detect":
             compare = st.checkbox("🔄 Enable Comparison (best.pt vs yolov8n.pt)")
             
             # --- VIDEO HANDLING ---
-          if file.name.lower().endswith(".mp4"):
-                tfile = tempfile.NamedTemporaryFile(delete=False) 
-                tfile.write(file.read())
-                cap = cv2.VideoCapture(tfile.name)
-    
-                if compare:
+            if file.name.lower().endswith(".mp4"):
+            tfile = tempfile.NamedTemporaryFile(delete=False) 
+            tfile.write(file.read())
+            cap = cv2.VideoCapture(tfile.name)
+            
+            if compare:
                 col1, col2 = st.columns(2)
                 col1.markdown("### 🎯 Best Model")
                 col2.markdown("### ⚡ Nano Model")
                 st_frame1 = col1.empty()
                 st_frame2 = col2.empty()
-    else:
-        st_frame = st.empty()
-    
-    # FPS chart ke liye container
-    st_fps = st.empty()
-    
-    m_best = YOLO("best.pt") if compare else None
-    m_nano = YOLO("yolov8n.pt") if compare else None
-
-    # Counter for unique keys
-    frame_count = 0
-
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret: break
-        
-        start_t = time.time()
-        
-        if compare:
-            r1 = m_best(frame, verbose=False)
-            r2 = m_nano(frame, verbose=False)
+            else:
+                st_frame = st.empty()
             
-            st_frame1.image(cv2.cvtColor(apply_supervision(frame.copy(), r1), cv2.COLOR_BGR2RGB))
-            st_frame2.image(cv2.cvtColor(apply_supervision(frame.copy(), r2), cv2.COLOR_BGR2RGB))
-        else:
-            res = st.session_state.model(frame, verbose=False)
-            st_frame.image(cv2.cvtColor(apply_supervision(frame, res), cv2.COLOR_BGR2RGB), use_container_width=True)
-        
-        dt = time.time() - start_t
-        
-        # --- FIX STARTS HERE ---
-        # unique key use karke DuplicateElementId error solve karein
-        with st_fps.container():
-            st.plotly_chart(
-                get_fps_chart(dt), 
-                use_container_width=True, 
-                key=f"fps_chart_{frame_count}" # Unique key for every loop
-            )
-        frame_count += 1
-        # --- FIX ENDS HERE ---
-        
-    cap.release()
+            st_fps = st.empty()
+            
+            # Counter for unique keys to fix DuplicateElementId
+            frame_count = 0
 
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret: break
+                
+                start_t = time.time()
+                
+                if compare:
+                    r1 = m_best(frame, verbose=False)
+                    r2 = m_nano(frame, verbose=False)
+                    
+                    st_frame1.image(cv2.cvtColor(apply_supervision(frame.copy(), r1), cv2.COLOR_BGR2RGB))
+                    st_frame2.image(cv2.cvtColor(apply_supervision(frame.copy(), r2), cv2.COLOR_BGR2RGB))
+                else:
+                    res = st.session_state.model(frame, verbose=False)
+                    st_frame.image(cv2.cvtColor(apply_supervision(frame, res), cv2.COLOR_BGR2RGB), use_container_width=True)
+                
+                dt = time.time() - start_t
+                
+                # Plotly chart unique key ke saath
+                with st_fps.container():
+                    st.plotly_chart(get_fps_chart(dt), use_container_width=True, key=f"fps_{frame_count}")
+                
+                frame_count += 1
+                
+            cap.release()
+            
             # --- IMAGE HANDLING ---
             else:
                 img = cv2.imdecode(np.frombuffer(file.read(), np.uint8), 1)
