@@ -382,53 +382,38 @@ elif page == "Model Comparison":
 # ================= WEBCAM PROCESSOR PAGE =================
 elif page == "Webcam Processor":
     st.title("🎥 Real-Time Webcam Detection")
-    st.markdown("---")
 
-    # 1. Check karein ki model select hua hai ya nahi
     if "model" not in st.session_state or st.session_state.model is None:
-        st.error("⚠️ Model Not Found! Please go to 'Model Selection' page first.")
+        st.error("⚠️ Model not found! Please select a model on the Setup page.")
         st.stop()
 
-    # 2. Page layout columns
-    col1, col2 = st.columns([3, 1])
+    # YAHAN FIX HAI: Model ko ek local variable mein pehle hi nikaal lein
+    current_model = st.session_state.model
 
-    with col1:
-        st.subheader(f"Live Feed: {st.session_state.get('model_name', 'YOLO')}")
-        
-        # WebRTC Streamer Setup
-        ctx = webrtc_streamer(
-            key="yolo-live-webcam",
-            video_processor_factory=lambda: VideoProcessor(st.session_state.model),
-            rtc_configuration={
-                "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
-            },
-            media_stream_constraints={"video": True, "audio": False},
-            async_processing=True,
-        )
-
-    with col2:
-        st.info("💡 **Instructions:**\n1. Select Device (if multiple).\n2. Click **START** to begin.\n3. Ensure good lighting for better detection.")
-        
-        # Status Indicator
-        if ctx.state.playing:
-            st.success("✅ Webcam is Active")
-        else:
-            st.warning("💤 Webcam is Offline")
-
+    # webrtc_streamer setup
+    webrtc_streamer(
+        key="yolo-fixed",
+        # Lambda ke bajaye direct class pass karein aur model local variable se dein
+        video_processor_factory=lambda: VideoProcessor(current_model), 
+        rtc_configuration={
+            "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+        },
+        media_stream_constraints={"video": True, "audio": False},
+        async_processing=True,
+    )
 # ================= VIDEO PROCESSOR CLASS =================
-# Is class ko code ke bilkul top par (if blocks se pehle) define karein
 class VideoProcessor(VideoProcessorBase):
-    def __init__(self, model):
-        self.model = model
+    def __init__(self, model_instance):
+        self.model = model_instance
 
     def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
         img = frame.to_ndarray(format="bgr24")
         
-        # YOLO Inference
-        # conf=0.4 rakha hai taaki false detections kam ho
-        results = self.model(img, conf=0.4, verbose=False)
-        
-        # Annotate results
-        annotated_img = results[0].plot()
+        # Inference
+        if self.model:
+            results = self.model(img, conf=0.4, verbose=False)
+            annotated_img = results[0].plot()
+        else:
+            annotated_img = img
 
         return av.VideoFrame.from_ndarray(annotated_img, format="bgr24")
