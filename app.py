@@ -398,7 +398,10 @@ RTC_CONFIGURATION = RTCConfiguration(
     {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
 )
 
-st.write(f"### Currently Detecting using: **{model_choice}**")
+if "model_name" in st.session_state:
+    st.write(f"### Currently Detecting using: **{st.session_state.model_name}**")
+else:
+    st.warning("⚠️ Please select a model first from the Selection page.")
 
 webrtc_streamer(
     key="yolo-multi",
