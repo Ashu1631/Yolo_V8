@@ -379,28 +379,56 @@ elif page == "Model Comparison":
         # 10. Strip Plot
         st.plotly_chart(px.strip(df_melted, x="Model", y="Score", color="Metric", title="10. Metric Points"))
 # --- Webcam Processor ---
+# ================= WEBCAM PROCESSOR PAGE =================
+elif page == "Webcam Processor":
+    st.title("🎥 Real-Time Webcam Detection")
+    st.markdown("---")
+
+    # 1. Check karein ki model select hua hai ya nahi
+    if "model" not in st.session_state or st.session_state.model is None:
+        st.error("⚠️ Model Not Found! Please go to 'Model Selection' page first.")
+        st.stop()
+
+    # 2. Page layout columns
+    col1, col2 = st.columns([3, 1])
+
+    with col1:
+        st.subheader(f"Live Feed: {st.session_state.get('model_name', 'YOLO')}")
+        
+        # WebRTC Streamer Setup
+        ctx = webrtc_streamer(
+            key="yolo-live-webcam",
+            video_processor_factory=lambda: VideoProcessor(st.session_state.model),
+            rtc_configuration={
+                "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+            },
+            media_stream_constraints={"video": True, "audio": False},
+            async_processing=True,
+        )
+
+    with col2:
+        st.info("💡 **Instructions:**\n1. Select Device (if multiple).\n2. Click **START** to begin.\n3. Ensure good lighting for better detection.")
+        
+        # Status Indicator
+        if ctx.state.playing:
+            st.success("✅ Webcam is Active")
+        else:
+            st.warning("💤 Webcam is Offline")
+
+# ================= VIDEO PROCESSOR CLASS =================
+# Is class ko code ke bilkul top par (if blocks se pehle) define karein
 class VideoProcessor(VideoProcessorBase):
-    def __init__(self):
+    def __init__(self, model):
         self.model = model
 
     def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
         img = frame.to_ndarray(format="bgr24")
-
-        # Detection
-        # Yahan hum current selected model use kar rahe hain
-        results = model(img, conf=0.4) 
+        
+        # YOLO Inference
+        # conf=0.4 rakha hai taaki false detections kam ho
+        results = self.model(img, conf=0.4, verbose=False)
+        
+        # Annotate results
         annotated_img = results[0].plot()
 
         return av.VideoFrame.from_ndarray(annotated_img, format="bgr24")
-
-# --- WebRTC Config ---
-RTC_CONFIGURATION = RTCConfiguration(
-    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
-)
-webrtc_streamer(
-    key="yolo-multi",
-    video_processor_factory=VideoProcessor,
-    rtc_configuration=RTC_CONFIGURATION,
-    media_stream_constraints={"video": True, "audio": False},
-    async_processing=True,
-)
