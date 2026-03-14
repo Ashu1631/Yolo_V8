@@ -407,9 +407,8 @@ elif page == "Webcam Processor":
     st.title("🎥 Real-Time Webcam Detection")
     st.markdown("---")
 
-    if st.session_state.model is None:
-        st.warning("⚠️ Pehle 'Model Selection' page par jaakar model choose karein!")
-        st.stop()
+    if st.session_state.model is not None:
+        active_yolo_model = st.session_state.model
 
     st.write(f"Active Model: `{st.session_state.model.ckpt_path}`")
 
