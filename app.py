@@ -12,12 +12,32 @@ import supervision as sv
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
 import av
 
-# --- Page Config ---
+# --- 1. PAGE CONFIG ---
 st.set_page_config(page_title="Ashu YOLO AI", layout="wide", page_icon="🎯")
 
-# --- Session State ---
-if "page" not in st.session_state: st.session_state.page = "Model Selection"
-if "model" not in st.session_state: st.session_state.model = None
+# --- 2. INITIALIZE SESSION STATE (Crucial Fix) ---
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if "page" not in st.session_state:
+    st.session_state.page = "Model Selection"
+
+if "model" not in st.session_state:
+    st.session_state.model = None
+
+# ================= 3. VIDEO PROCESSOR CLASS =================
+class VideoProcessor(VideoProcessorBase):
+    def __init__(self, model_instance):
+        self.model = model_instance
+
+    def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
+        img = frame.to_ndarray(format="bgr24")
+        if self.model:
+            results = self.model(img, conf=0.4, verbose=False)
+            annotated_img = results[0].plot()
+        else:
+            annotated_img = img
+        return av.VideoFrame.from_ndarray(annotated_img, format="bgr24")
     
 # ================= LOGIN PAGE =================
 if not st.session_state.logged_in:
