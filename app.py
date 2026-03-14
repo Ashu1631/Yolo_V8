@@ -155,7 +155,7 @@ elif page == "Upload & Detect":
             compare = st.checkbox("🔄 Enable Comparison (best.pt vs yolov8n.pt)")
             
             # --- VIDEO HANDLING ---
-            if file.name.lower().endswith(".mp4"):
+          if file.name.lower().endswith(".mp4"):
                 tfile = tempfile.NamedTemporaryFile(delete=False) 
                 tfile.write(file.read())
                 cap = cv2.VideoCapture(tfile.name)
