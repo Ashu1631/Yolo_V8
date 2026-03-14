@@ -425,4 +425,3 @@ elif page == "Webcam Processor":
 
     st.markdown("---")
     st.caption("Ashu YOLO AI Project - Streamlit Cloud Deployment")
-st.write("Click 'Start' to begin webcam detection.")
