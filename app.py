@@ -186,7 +186,7 @@ if file.name.lower().endswith(".mp4"):
                     
                         st_frame1.image(cv2.cvtColor(apply_supervision(frame.copy(), r1), cv2.COLOR_BGR2RGB))
                         st_frame2.image(cv2.cvtColor(apply_supervision(frame.copy(), r2), cv2.COLOR_BGR2RGB))
-                   else:
+                    else:
                         res = st.session_state.model(frame, verbose=False)
                         st_frame.image(cv2.cvtColor(apply_supervision(frame, res), cv2.COLOR_BGR2RGB), use_container_width=True)
                 
