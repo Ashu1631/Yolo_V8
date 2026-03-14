@@ -384,28 +384,27 @@ elif page == "Model Comparison":
         st.plotly_chart(px.strip(df_melted, x="Model", y="Score", color="Metric", title="10. Metric Points"))
 
 # --- Webcam Processor Class ---
-class VideoProcessor(VideoProcessorBase):
-    def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
-        img = frame.to_ndarray(format="bgr24")
+elif page == "Webcam Processor":
+    st.title("🎥 Real-Time Webcam Detection")
+    st.markdown("---")
 
-        # YOLO Detection logic
-        results = model(img, conf=0.5) # Confidence 0.5 rakha hai
-        annotated_img = results[0].plot()
+    if st.session_state.model is None:
+        st.warning("⚠️ Pehle 'Model Selection' page par jaakar model choose karein!")
+        st.stop()
 
-        return av.VideoFrame.from_ndarray(annotated_img, format="bgr24")
+    st.write(f"Active Model: `{st.session_state.model.ckpt_path}`")
 
-# --- WebRTC Streamer ---
-# STUN servers help in connecting the webcam over the internet
-RTC_CONFIGURATION = RTCConfiguration(
-    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
-)
+    # Webcam logic starts here
+    webrtc_streamer(
+        key="yolo-live-final",
+        video_processor_factory=lambda: VideoProcessor(st.session_state.model),
+        rtc_configuration={
+            "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+        },
+        media_stream_constraints={"video": True, "audio": False},
+        async_processing=True,
+    )
 
-webrtc_streamer(
-    key="yolo-detection",
-    video_processor_factory=VideoProcessor,
-    rtc_configuration=RTC_CONFIGURATION,
-    media_stream_constraints={"video": True, "audio": False},
-    async_processing=True,
-)
-
+    st.markdown("---")
+    st.caption("Ashu YOLO AI Project - Streamlit Cloud Deployment")
 st.write("Click 'Start' to begin webcam detection.")
