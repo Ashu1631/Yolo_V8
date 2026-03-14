@@ -160,7 +160,7 @@ if file.name.lower().endswith(".mp4"):
     tfile.write(file.read())
     cap = cv2.VideoCapture(tfile.name)
     
-            if compare:
+    if compare:
                 col1, col2 = st.columns(2)
                 col1.markdown("### 🎯 Best Model")
                 col2.markdown("### ⚡ Nano Model")
