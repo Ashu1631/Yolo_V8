@@ -198,7 +198,7 @@ if file.name.lower().endswith(".mp4"):
                 
                     frame_count += 1
                 
-            cap.release()
+                    cap.release()
             
             # --- IMAGE HANDLING ---
             else:
