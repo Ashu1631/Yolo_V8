@@ -196,7 +196,7 @@ if file.name.lower().endswith(".mp4"):
                     with st_fps.container():
                         st.plotly_chart(get_fps_chart(dt), use_container_width=True, key=f"fps_{frame_count}")
                 
-                  frame_count += 1
+                    frame_count += 1
                 
             cap.release()
             
