@@ -415,14 +415,14 @@ elif page == "Webcam Processor":
 
     # Webcam logic starts here
     webrtc_streamer(
-        key="yolo-live-final",
-        video_processor_factory=lambda: VideoProcessor(st.session_state.model),
-        rtc_configuration={
-            "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
-        },
-        media_stream_constraints={"video": True, "audio": False},
-        async_processing=True,
-    )
+    key="yolo-live-stable",
+    video_processor_factory=lambda: VideoProcessor(current_model), 
+    rtc_configuration={
+        "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+    },
+    media_stream_constraints={"video": True, "audio": False},
+    async_processing=True,
+)
 
     st.markdown("---")
     st.caption("Ashu YOLO AI Project - Streamlit Cloud Deployment")
