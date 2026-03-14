@@ -169,7 +169,7 @@ if file.name.lower().endswith(".mp4"):
     else:
                 st_frame = st.empty()
             
-            st_fps = st.empty()
+                st_fps = st.empty()
             
             # Counter for unique keys to fix DuplicateElementId
             frame_count = 0
