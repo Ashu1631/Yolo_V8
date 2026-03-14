@@ -1,3 +1,4 @@
+streamlit
 ultralytics
 streamlit-webrtc
 supervision
