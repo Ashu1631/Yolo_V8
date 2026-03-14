@@ -403,25 +403,24 @@ elif page == "Model Comparison":
         st.plotly_chart(px.strip(df_melted, x="Model", y="Score", color="Metric", title="10. Metric Points"))
 
 # --- Webcam Processor Class ---
-elif page == "Webcam Processor":
+elif current_page == "Webcam Processor":
     st.title("🎥 Real-Time Webcam Detection")
     st.markdown("---")
-
-    if st.session_state.model is not None:
-        active_yolo_model = st.session_state.model
-
-    st.write(f"Active Model: `{st.session_state.model.ckpt_path}`")
-
-    # Webcam logic starts here
-    webrtc_streamer(
-    key="yolo-live-stable",
-    video_processor_factory=lambda: VideoProcessor(current_model), 
-    rtc_configuration={
-        "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
-    },
-    media_stream_constraints={"video": True, "audio": False},
-    async_processing=True,
-)
-
-    st.markdown("---")
-    st.caption("Ashu YOLO AI Project - Streamlit Cloud Deployment")
+    
+    if st.session_state.model is None:
+        st.warning("⚠️ Please select a model on the 'Model Selection' page first!")
+    else:
+        st.info(f"Active Model: {os.path.basename(st.session_state.model.ckpt_path)}")
+        
+        # WEBCAM LOGIC (Sirf isi block ke andar chalega)
+        active_model = st.session_state.model
+        
+        webrtc_streamer(
+            key="yolo-v3-final-stable", # Unique key to prevent cache issues
+            video_processor_factory=lambda: VideoProcessor(active_model),
+            rtc_configuration={
+                "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+            },
+            media_stream_constraints={"video": True, "audio": False},
+            async_processing=True,
+        )
