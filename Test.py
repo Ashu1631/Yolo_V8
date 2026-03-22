@@ -916,7 +916,7 @@ elif page == "Upload & Detect":
 elif page == "📷 Webcam Detection":
     st.title("📷 Live Webcam Detection - Ashu YOLO AI")
     if not st.session_state.model:
-        st.warning("⚠️ Pehle Model Selection page pe model load karein!")
+        st.warning("⚠️ First Please Select The Model")
         st.stop()
 
     st.markdown(f"""
@@ -940,15 +940,6 @@ elif page == "📷 Webcam Detection":
 
     st.divider()
 
-    with st.expander("💡 Webcam Tips"):
-        st.markdown("""
-        - Browser camera permission **allow** karein jab pooche.
-        - **START** dabao webcam shuru, **STOP** se band karo.
-        - Best browser: **Chrome** ya **Edge**.
-        - FPS aur object count seedha video pe dikhega.
-        - Low FPS? Confidence badhao ya `yolov8n.pt` use karo.
-        - Agar webcam nahi khul raha — page refresh karo aur phir try karo.
-        """)
 
     if "webcam_model" not in st.session_state:
         st.session_state.webcam_model = st.session_state.model
