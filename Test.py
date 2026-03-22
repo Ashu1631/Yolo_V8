@@ -30,8 +30,23 @@ RTC_CONFIG = RTCConfiguration({
     "iceServers": [
         {"urls": ["stun:stun.l.google.com:19302"]},
         {"urls": ["stun:stun1.l.google.com:19302"]},
-        {"urls": ["stun:stun2.l.google.com:19302"]},
-        {"urls": ["stun:stun3.l.google.com:19302"]},
+        {"urls": ["stun:global.stun.twilio.com:3478"]},
+        {"urls": ["stun:stun.relay.metered.ca:80"]},
+        {
+            "urls": ["turn:global.relay.metered.ca:80"],
+            "username": "openrelayproject",
+            "credential": "openrelayproject",
+        },
+        {
+            "urls": ["turn:global.relay.metered.ca:443"],
+            "username": "openrelayproject",
+            "credential": "openrelayproject",
+        },
+        {
+            "urls": ["turn:global.relay.metered.ca:443?transport=tcp"],
+            "username": "openrelayproject",
+            "credential": "openrelayproject",
+        },
     ]
 })
 
@@ -984,6 +999,18 @@ elif page == "📷 Webcam Detection":
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
             return av.VideoFrame.from_ndarray(img, format="bgr24")
 
+    # Chrome localhost fix — allow insecure camera
+    st.markdown("""
+        <script>
+        // Force camera permission check
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({video: true})
+                .then(s => { s.getTracks().forEach(t => t.stop()); })
+                .catch(e => console.warn('Camera pre-check:', e));
+        }
+        </script>
+    """, unsafe_allow_html=True)
+
     st.markdown("### 🎥 Live Detection Stream")
     ctx = webrtc_streamer(
         key="ashu-yolo-webcam-v2",
@@ -991,14 +1018,14 @@ elif page == "📷 Webcam Detection":
         rtc_configuration=RTC_CONFIG,
         media_stream_constraints={
             "video": {
-                "width": {"ideal": 1280, "max": 1920},
-                "height": {"ideal": 720, "max": 1080},
-                "frameRate": {"ideal": 30, "max": 60}
+                "width": {"ideal": 640, "max": 1280},
+                "height": {"ideal": 480, "max": 720},
+                "frameRate": {"ideal": 15, "max": 30},
+                "facingMode": "user",
             },
             "audio": False
         },
         async_processing=True,
-        desired_playing_state=None,
     )
 
     st.divider()
