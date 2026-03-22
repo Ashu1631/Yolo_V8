@@ -2,6 +2,8 @@ import streamlit as st
 import tempfile
 import os
 import cv2
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
+import av
 import time
 import numpy as np
 import pandas as pd
@@ -24,9 +26,22 @@ if "model_name" not in st.session_state:
     st.session_state.model_name = None
 
 # --- RTC CONFIG ---
-
-
-
+RTC_CONFIG = RTCConfiguration({
+    "iceServers": [
+        {"urls": ["stun:stun.l.google.com:19302"]},
+        {"urls": ["stun:stun1.l.google.com:19302"]},
+        {
+            "urls": [
+                "turn:global.relay.metered.ca:80",
+                "turn:global.relay.metered.ca:443",
+                "turn:global.relay.metered.ca:443?transport=tcp",
+                "turns:global.relay.metered.ca:443",
+            ],
+            "username": "ff77d8d4e6404c06f197dbc3",
+            "credential": "F0Y7dnXJpWOnGeid",
+        },
+    ]
+})
 
 # =================== FPS GAUGE HELPER ===================
 def make_fps_gauge(fps_val, model_label, gauge_key):
@@ -871,7 +886,7 @@ elif page == "Upload & Detect":
 
 # ----------- WEBCAM DETECTION -----------
 elif page == "📷 Webcam Detection":
-    st.title("📷 Live Camera Detection - Ashu YOLO AI")
+    st.title("📷 Live Webcam Detection - Ashu YOLO AI")
     if not st.session_state.model:
         st.warning("⚠️ Pehle Model Selection page pe model load karein!")
         st.stop()
@@ -890,10 +905,12 @@ elif page == "📷 Webcam Detection":
         conf_threshold = st.slider("🎚️ Confidence Threshold", 0.1, 0.95, 0.4, 0.05)
     with col_ctrl2:
         model_options = ["Current Model"] + [f for f in os.listdir() if f.endswith(".pt")]
-        selected_model_wc = st.selectbox("🔁 Switch Model", model_options)
+        selected_model_wc = st.selectbox("🔁 Switch Model (Webcam)", model_options)
     with col_ctrl3:
         st.markdown("<br>", unsafe_allow_html=True)
         apply_btn = st.button("⚡ Apply", use_container_width=True)
+
+    st.divider()
 
     if "webcam_model" not in st.session_state:
         st.session_state.webcam_model = st.session_state.model
@@ -904,114 +921,80 @@ elif page == "📷 Webcam Detection":
         st.success(f"✅ Model switched to `{selected_model_wc}`!")
 
     active_model = st.session_state.webcam_model
+    st.session_state.webcam_conf = conf_threshold
+
+    class LiveProcessor(VideoProcessorBase):
+        def __init__(self):
+            self.model = active_model
+            self.conf_threshold = st.session_state.get("webcam_conf", 0.4)
+            self.frame_count = 0
+            self.fps = 0
+            self._last_time = time.time()
+
+        def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
+            img = frame.to_ndarray(format="bgr24")
+            self.conf_threshold = st.session_state.get("webcam_conf", 0.4)
+            if self.model is not None:
+                try:
+                    results = self.model(img, conf=self.conf_threshold, verbose=False)
+                    detections = sv.Detections.from_ultralytics(results[0])
+                    box_annotator = sv.BoxAnnotator(thickness=2)
+                    label_annotator = sv.LabelAnnotator(text_thickness=1, text_scale=0.5)
+                    labels = [
+                        f"{results[0].names[cls_id]} {conf:.2f}"
+                        for cls_id, conf in zip(detections.class_id, detections.confidence)
+                    ]
+                    annotated = box_annotator.annotate(scene=img.copy(), detections=detections)
+                    annotated = label_annotator.annotate(scene=annotated, detections=detections, labels=labels)
+                    self.frame_count += 1
+                    now = time.time()
+                    elapsed = now - self._last_time
+                    if elapsed >= 1.0:
+                        self.fps = self.frame_count / elapsed
+                        self.frame_count = 0
+                        self._last_time = now
+                    cv2.putText(annotated, f"FPS: {self.fps:.1f} | Objects: {len(detections)} | Conf: {self.conf_threshold:.2f}",
+                                (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                    return av.VideoFrame.from_ndarray(annotated, format="bgr24")
+                except Exception as e:
+                    cv2.putText(img, f"Error: {str(e)[:60]}", (10, 30),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+            return av.VideoFrame.from_ndarray(img, format="bgr24")
+
+    st.markdown("### 🎥 Live Detection Stream")
+    ctx = webrtc_streamer(
+        key="ashu-yolo-webcam-v2",
+        video_processor_factory=LiveProcessor,
+        rtc_configuration=RTC_CONFIG,
+        media_stream_constraints={
+            "video": {
+                "width": {"ideal": 640, "max": 1280},
+                "height": {"ideal": 480, "max": 720},
+                "frameRate": {"ideal": 15, "max": 30},
+                "facingMode": "user",
+            },
+            "audio": False
+        },
+        async_processing=True,
+    )
 
     st.divider()
-    st.markdown("### 📸 Capture & Detect")
+    s1, s2, s3 = st.columns(3)
+    with s1:
+        if ctx.state.playing:
+            st.success("🟢 **Stream: LIVE**")
+        else:
+            st.error("🔴 **Stream: Stopped**")
+    with s2:
+        st.info(f"🎯 **Model:** `{st.session_state.model_name}`")
+    with s3:
+        st.info(f"⚙️ **Confidence:** `{conf_threshold}`")
 
-    # JS-based camera capture
-    st.markdown("""
-        <style>
-        #cam-container {
-            display: flex; flex-direction: column; align-items: center; gap: 12px;
-        }
-        #videoEl {
-            width: 100%; max-width: 640px; border-radius: 12px;
-            border: 1px solid rgba(40,167,69,0.4);
-            background: #000;
-        }
-        #captureBtn {
-            background: linear-gradient(135deg,#1a7a2e,#28a745);
-            color: white; border: none; border-radius: 10px;
-            font-size: 15px; font-weight: 700; letter-spacing: 2px;
-            padding: 12px 40px; cursor: pointer;
-            box-shadow: 0 4px 20px rgba(40,167,69,0.4);
-            transition: all 0.2s ease;
-        }
-        #captureBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(40,167,69,0.6); }
-        #canvas { display: none; }
-        </style>
-
-        <div id="cam-container">
-            <video id="videoEl" autoplay playsinline></video>
-            <canvas id="canvas"></canvas>
-            <button id="captureBtn" onclick="captureFrame()">📸 CAPTURE & DETECT</button>
-        </div>
-
-        <script>
-        const video = document.getElementById('videoEl');
-        const canvas = document.getElementById('canvas');
-
-        navigator.mediaDevices.getUserMedia({ video: { width:640, height:480, facingMode:'user' } })
-            .then(stream => { video.srcObject = stream; })
-            .catch(err => {
-                document.getElementById('cam-container').innerHTML =
-                    '<p style="color:#ff6b6b;">❌ Camera access denied: ' + err.message + '</p>';
-            });
-
-        function captureFrame() {
-            canvas.width  = video.videoWidth  || 640;
-            canvas.height = video.videoHeight || 480;
-            canvas.getContext('2d').drawImage(video, 0, 0);
-            const dataURL = canvas.toDataURL('image/jpeg', 0.85);
-            // Send to Streamlit via query param trick
-            const input = window.parent.document.querySelector('input[aria-label="__cam_data__"]');
-            if (input) {
-                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                nativeInputValueSetter.call(input, dataURL);
-                input.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-        }
-        </script>
-    """, unsafe_allow_html=True)
-
-    # Hidden input to receive base64 image from JS
-    cam_data = st.text_input("__cam_data__", key="cam_data", label_visibility="hidden")
-
-    st.divider()
-
-    # Also provide manual upload as fallback
-    st.markdown("#### 📁 Ya photo upload karo (fallback)")
-    uploaded_cam = st.file_uploader("Photo upload karo", type=["jpg","jpeg","png"], key="cam_upload", label_visibility="collapsed")
-
-    result_placeholder = st.empty()
-
-    def run_detection(img_array, conf):
-        t0 = time.time()
-        res = active_model(img_array, conf=conf, verbose=False)
-        fps = get_fps(time.time() - t0)
-        annotated = apply_supervision(img_array, res)
-        detections = sv.Detections.from_ultralytics(res[0])
-        return annotated, fps, len(detections)
-
-    # Process captured frame from JS
-    if cam_data and cam_data.startswith("data:image"):
-        try:
-            import base64
-            header, encoded = cam_data.split(",", 1)
-            img_bytes = base64.b64decode(encoded)
-            img_array = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), 1)
-            annotated, fps, obj_count = run_detection(img_array, conf_threshold)
-            with result_placeholder.container():
-                st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), use_container_width=True)
-                r1, r2, r3 = st.columns(3)
-                r1.success(f"🟢 **Objects: {obj_count}**")
-                r2.info(f"⚡ **FPS: {fps}**")
-                r3.info(f"🎯 **Model:** `{st.session_state.model_name}`")
-                make_fps_gauge(fps, st.session_state.model_name, "cam_gauge")
-        except Exception as e:
-            st.error(f"Detection error: {e}")
-
-    # Process uploaded file
-    elif uploaded_cam:
-        img_array = cv2.imdecode(np.frombuffer(uploaded_cam.read(), np.uint8), 1)
-        annotated, fps, obj_count = run_detection(img_array, conf_threshold)
-        with result_placeholder.container():
-            st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), use_container_width=True)
-            r1, r2, r3 = st.columns(3)
-            r1.success(f"🟢 **Objects: {obj_count}**")
-            r2.info(f"⚡ **Inference: {fps} fps**")
-            r3.info(f"🎯 **Model:** `{st.session_state.model_name}`")
-            make_fps_gauge(fps, st.session_state.model_name, "upload_cam_gauge")
+    if ctx.video_processor and apply_btn:
+        ctx.video_processor.conf_threshold = conf_threshold
+        if selected_model_wc != "Current Model":
+            ctx.video_processor.model = active_model
+        st.toast("✅ Settings applied!", icon="⚡")
 
 # ----------- EVALUATION DASHBOARD -----------
 elif page == "Evaluation Dashboard":
