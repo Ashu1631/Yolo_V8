@@ -238,21 +238,21 @@ if not st.session_state.logged_in:
         .c-br { bottom:12px; right:12px; border-width:0 2px 2px 0; border-radius:0 0 4px 0; }
 
         /* Orbit icon */
-        .orbit-wrap { text-align:center; margin-bottom:24px; }
+        .orbit-wrap { text-align:center; margin-bottom:10px; }
         .orbit {
             display:inline-block; position:relative;
-            width:80px; height:80px;
+            width:64px; height:64px;
         }
         .orbit-core {
             position:absolute; top:50%; left:50%;
             transform:translate(-50%,-50%);
-            width:34px; height:34px; border-radius:50%;
+            width:26px; height:26px; border-radius:50%;
             background:radial-gradient(circle,#c060ff,#7020c0);
             box-shadow:0 0 20px rgba(160,60,255,0.9),0 0 40px rgba(160,60,255,0.35);
         }
         .orbit-ring {
             position:absolute; top:4px; left:4px;
-            width:72px; height:72px; border-radius:50%;
+            width:58px; height:58px; border-radius:50%;
             border:1px solid rgba(180,80,255,0.4);
             animation:spin 6s linear infinite;
         }
@@ -284,7 +284,7 @@ if not st.session_state.logged_in:
         /* Titles */
         .logo-title {
             font-family:'Share Tech Mono',monospace;
-            font-size:26px; font-weight:700;
+            font-size:22px; font-weight:700;
             letter-spacing:5px; text-align:center;
             color:#d080ff;
             text-shadow:0 0 22px rgba(180,80,255,0.65);
@@ -316,7 +316,7 @@ if not st.session_state.logged_in:
             font-size:10px; letter-spacing:6px;
             text-align:center; text-transform:uppercase;
             color:rgba(180,120,255,0.42);
-            margin-bottom:22px;
+            margin-bottom:10px;
             opacity:0;
             animation: fadeSlideUp 0.6s ease 2s forwards;
         }
@@ -346,7 +346,7 @@ if not st.session_state.logged_in:
         /* Status bar */
         .status-bar {
             display:flex; align-items:center; justify-content:center;
-            gap:8px; margin-bottom:24px;
+            gap:8px; margin-bottom:10px;
             font-family:'Share Tech Mono',monospace;
             font-size:11px; letter-spacing:2px;
             color:rgba(255,255,255,0.3);
@@ -366,7 +366,7 @@ if not st.session_state.logged_in:
         .login-divider {
             height:1px;
             background:linear-gradient(90deg,transparent,rgba(150,60,255,0.5),transparent);
-            margin-bottom:26px;
+            margin-bottom:14px;
         }
 
         /* Streamlit input overrides */
@@ -535,7 +535,6 @@ if not st.session_state.logged_in:
         </script>
     """, unsafe_allow_html=True)
 
-    st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
         # Geeta shlok box (replaces empty card top)
@@ -545,8 +544,8 @@ if not st.session_state.logged_in:
                 border: 1px solid rgba(160,80,255,0.3);
                 border-left: 3px solid rgba(180,80,255,0.7);
                 border-radius: 12px;
-                padding: 14px 18px;
-                margin-bottom: 18px;
+                padding: 10px 14px;
+                margin-bottom: 10px;
                 font-family: Georgia, serif;
                 animation: fadeSlideUp 0.6s ease 0.2s both;
             ">
@@ -562,21 +561,17 @@ if not st.session_state.logged_in:
             </div>
         ''', unsafe_allow_html=True)
 
-        # Card open + corners
-        st.markdown('<div class="login-card"><div class="c-tl"></div><div class="c-tr"></div><div class="c-bl"></div><div class="c-br"></div>', unsafe_allow_html=True)
         # Orbit icon
         st.markdown('<div class="orbit-wrap"><div class="orbit"><div class="orbit-ring2"></div><div class="orbit-ring"></div><div class="orbit-core"></div></div></div>', unsafe_allow_html=True)
         # Title + subtitle
         st.markdown('<div class="logo-title">ASHU YOLO AI</div><div class="logo-sub">Neural Vision &nbsp;·&nbsp; Deep Space</div>', unsafe_allow_html=True)
         # Status bar + divider
         st.markdown('<div class="status-bar"><div class="status-dot"></div>SYSTEM ONLINE &nbsp;·&nbsp; SECURE ACCESS</div><div class="login-divider"></div>', unsafe_allow_html=True)
-        # Card close
-        st.markdown('</div>', unsafe_allow_html=True)
 
         u = st.text_input("Username", placeholder="Enter username", key="login_user")
-        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
         p = st.text_input("Password", type="password", placeholder="Enter password", key="login_pass")
-        st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
         if st.button("⚡  INITIALIZE ACCESS", use_container_width=True):
             if u == "admin" and p == "ashu@123":
@@ -963,8 +958,7 @@ elif page == "📷 Webcam Detection":
         model_options = ["Current Model"] + [f for f in os.listdir() if f.endswith(".pt")]
         selected_model_wc = st.selectbox("🔁 Switch Model (Webcam)", model_options)
     with col_ctrl3:
-        st.markdown("<br>", unsafe_allow_html=True)
-        apply_btn = st.button("⚡ Apply", use_container_width=True)
+            apply_btn = st.button("⚡ Apply", use_container_width=True)
 
     st.divider()
 
