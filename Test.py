@@ -519,29 +519,16 @@ if not st.session_state.logged_in:
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("""
-            <div class="login-card">
-                <div class="c-tl"></div><div class="c-tr"></div>
-                <div class="c-bl"></div><div class="c-br"></div>
-
-                <div class="orbit-wrap">
-                    <div class="orbit">
-                        <div class="orbit-ring2"></div>
-                        <div class="orbit-ring"></div>
-                        <div class="orbit-core"></div>
-                    </div>
-                </div>
-
-                <div class="logo-title">ASHU YOLO AI</div>
-                <div class="logo-sub">Neural Vision · Deep Space</div>
-
-                <div class="status-bar">
-                    <div class="status-dot"></div>
-                    SYSTEM ONLINE &nbsp;·&nbsp; SECURE ACCESS
-                </div>
-                <div class="login-divider"></div>
-            </div>
-        """, unsafe_allow_html=True)
+        # Card open + corners
+        st.markdown('<div class="login-card"><div class="c-tl"></div><div class="c-tr"></div><div class="c-bl"></div><div class="c-br"></div>', unsafe_allow_html=True)
+        # Orbit icon
+        st.markdown('<div class="orbit-wrap"><div class="orbit"><div class="orbit-ring2"></div><div class="orbit-ring"></div><div class="orbit-core"></div></div></div>', unsafe_allow_html=True)
+        # Title + subtitle
+        st.markdown('<div class="logo-title">ASHU YOLO AI</div><div class="logo-sub">Neural Vision &nbsp;·&nbsp; Deep Space</div>', unsafe_allow_html=True)
+        # Status bar + divider
+        st.markdown('<div class="status-bar"><div class="status-dot"></div>SYSTEM ONLINE &nbsp;·&nbsp; SECURE ACCESS</div><div class="login-divider"></div>', unsafe_allow_html=True)
+        # Card close
+        st.markdown('</div>', unsafe_allow_html=True)
 
         u = st.text_input("Username", placeholder="Enter username", key="login_user")
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
