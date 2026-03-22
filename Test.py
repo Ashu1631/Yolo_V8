@@ -26,26 +26,31 @@ if "model_name" not in st.session_state:
     st.session_state.model_name = None
 
 # --- RTC CONFIG ---
+# --- TURN credentials from Streamlit secrets or hardcoded fallback ---
+# To use your own: add [rtc] section in .streamlit/secrets.toml
+# turn_username = "your_username"
+# turn_credential = "your_credential"
+
+try:
+    _turn_user = st.secrets["rtc"]["turn_username"]
+    _turn_cred = st.secrets["rtc"]["turn_credential"]
+except Exception:
+    _turn_user = "openrelayproject"
+    _turn_cred = "openrelayproject"
+
 RTC_CONFIG = RTCConfiguration({
     "iceServers": [
         {"urls": ["stun:stun.l.google.com:19302"]},
         {"urls": ["stun:stun1.l.google.com:19302"]},
-        {"urls": ["stun:global.stun.twilio.com:3478"]},
-        {"urls": ["stun:stun.relay.metered.ca:80"]},
         {
-            "urls": ["turn:global.relay.metered.ca:80"],
-            "username": "openrelayproject",
-            "credential": "openrelayproject",
-        },
-        {
-            "urls": ["turn:global.relay.metered.ca:443"],
-            "username": "openrelayproject",
-            "credential": "openrelayproject",
-        },
-        {
-            "urls": ["turn:global.relay.metered.ca:443?transport=tcp"],
-            "username": "openrelayproject",
-            "credential": "openrelayproject",
+            "urls": [
+                "turn:global.relay.metered.ca:80",
+                "turn:global.relay.metered.ca:443",
+                "turn:global.relay.metered.ca:443?transport=tcp",
+                "turns:global.relay.metered.ca:443",
+            ],
+            "username": _turn_user,
+            "credential": _turn_cred,
         },
     ]
 })
@@ -141,7 +146,6 @@ if not st.session_state.logged_in:
 
         .stApp {
             background: #06030f !important;
-            overflow: hidden;
         }
 
         /* Nebula blobs */
@@ -534,6 +538,30 @@ if not st.session_state.logged_in:
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
+        # Geeta shlok box (replaces empty card top)
+        st.markdown('''
+            <div style="
+                background: rgba(80,20,140,0.18);
+                border: 1px solid rgba(160,80,255,0.3);
+                border-left: 3px solid rgba(180,80,255,0.7);
+                border-radius: 12px;
+                padding: 14px 18px;
+                margin-bottom: 18px;
+                font-family: Georgia, serif;
+                animation: fadeSlideUp 0.6s ease 0.2s both;
+            ">
+                <div style="font-size:13px; color:rgba(200,150,255,0.55); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; font-family: Share Tech Mono, monospace;">
+                    ✦ Bhagavad Gita · Chapter 11:32
+                </div>
+                <div style="font-size:14px; color:#e0c8ff; line-height:1.8; font-style:italic;">
+                    "Now I am become Death, the destroyer of worlds."
+                </div>
+                <div style="font-size:11px; color:rgba(180,120,255,0.45); margin-top:8px; letter-spacing:1px;">
+                    — J. Robert Oppenheimer recalled this verse upon witnessing the first nuclear test, July 16, 1945
+                </div>
+            </div>
+        ''', unsafe_allow_html=True)
+
         # Card open + corners
         st.markdown('<div class="login-card"><div class="c-tl"></div><div class="c-tr"></div><div class="c-bl"></div><div class="c-br"></div>', unsafe_allow_html=True)
         # Orbit icon
