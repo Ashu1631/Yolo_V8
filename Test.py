@@ -916,7 +916,7 @@ elif page == "Upload & Detect":
 elif page == "📷 Webcam Detection":
     st.title("📷 Live Webcam Detection - Ashu YOLO AI")
     if not st.session_state.model:
-        st.warning("⚠️ First Please Select The Model")
+        st.warning("⚠️ Pehle Model Selection page pe model load karein!")
         st.stop()
 
     st.markdown(f"""
@@ -939,6 +939,7 @@ elif page == "📷 Webcam Detection":
         apply_btn = st.button("⚡ Apply", use_container_width=True)
 
     st.divider()
+
 
 
     if "webcam_model" not in st.session_state:
