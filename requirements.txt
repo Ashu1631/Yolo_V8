@@ -1,9 +1,9 @@
 streamlit
-ultralytics
-supervision==0.18.0
+streamlit-webrtc
+av
 opencv-python-headless
+ultralytics
+supervision
+plotly
 pandas
 numpy
-plotly
-pyyaml
-reportlab
