@@ -524,24 +524,217 @@ if not st.session_state.logged_in:
 
         if st.button("⚡  INITIALIZE ACCESS", use_container_width=True):
             if u == "admin" and p == "ashu@123":
-                st.success("✅ Access Granted! Initializing...")
-                time.sleep(0.8)
+                # ✅ SUCCESS — thumbs up + tick animation
+                st.markdown("""
+                    <style>
+                    @keyframes successPop {
+                        0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+                        60%  { transform: scale(1.3) rotate(5deg);  opacity: 1; }
+                        80%  { transform: scale(0.9) rotate(-3deg); }
+                        100% { transform: scale(1) rotate(0deg);    opacity: 1; }
+                    }
+                    @keyframes tickDraw {
+                        from { stroke-dashoffset: 100; }
+                        to   { stroke-dashoffset: 0; }
+                    }
+                    @keyframes glowPulse {
+                        0%,100% { box-shadow: 0 0 20px rgba(40,167,69,0.6), 0 0 60px rgba(40,167,69,0.3); }
+                        50%     { box-shadow: 0 0 40px rgba(40,167,69,0.9), 0 0 100px rgba(40,167,69,0.5); }
+                    }
+                    @keyframes floatEmoji {
+                        0%   { transform: translateY(0px) scale(1); }
+                        50%  { transform: translateY(-12px) scale(1.1); }
+                        100% { transform: translateY(0px) scale(1); }
+                    }
+                    @keyframes confettiFall {
+                        0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+                        100% { transform: translateY(80px)  rotate(720deg); opacity: 0; }
+                    }
+                    .success-box {
+                        background: linear-gradient(135deg, rgba(20,60,20,0.95), rgba(10,40,10,0.9));
+                        border: 1px solid rgba(40,220,80,0.5);
+                        border-radius: 16px;
+                        padding: 20px 24px;
+                        text-align: center;
+                        position: relative;
+                        overflow: hidden;
+                        animation: glowPulse 1.5s ease infinite;
+                    }
+                    .success-icons {
+                        font-size: 42px;
+                        display: flex;
+                        justify-content: center;
+                        gap: 16px;
+                        animation: successPop 0.6s cubic-bezier(0.16,1,0.3,1) both;
+                    }
+                    .thumb-icon {
+                        display: inline-block;
+                        animation: floatEmoji 1.2s ease-in-out infinite;
+                    }
+                    .tick-icon {
+                        display: inline-block;
+                        animation: floatEmoji 1.2s ease-in-out 0.3s infinite;
+                    }
+                    .success-text {
+                        font-family: 'Share Tech Mono', monospace;
+                        font-size: 15px;
+                        color: #60ff80;
+                        letter-spacing: 3px;
+                        margin-top: 10px;
+                        text-shadow: 0 0 16px rgba(60,255,80,0.7);
+                    }
+                    .success-sub {
+                        font-size: 11px;
+                        color: rgba(100,255,120,0.5);
+                        letter-spacing: 2px;
+                        margin-top: 4px;
+                    }
+                    .confetti-wrap {
+                        position: absolute; top: 0; left: 0;
+                        width: 100%; height: 100%;
+                        pointer-events: none;
+                    }
+                    .conf-dot {
+                        position: absolute;
+                        width: 8px; height: 8px;
+                        border-radius: 2px;
+                        animation: confettiFall 1s ease forwards;
+                    }
+                    </style>
+                    <div class="success-box">
+                        <div class="confetti-wrap">
+                            <div class="conf-dot" style="left:10%;background:#28a745;animation-delay:0.0s;"></div>
+                            <div class="conf-dot" style="left:25%;background:#ffc107;animation-delay:0.1s;"></div>
+                            <div class="conf-dot" style="left:40%;background:#17a2b8;animation-delay:0.05s;"></div>
+                            <div class="conf-dot" style="left:55%;background:#28a745;animation-delay:0.15s;"></div>
+                            <div class="conf-dot" style="left:70%;background:#e83e8c;animation-delay:0.08s;"></div>
+                            <div class="conf-dot" style="left:85%;background:#ffc107;animation-delay:0.12s;"></div>
+                        </div>
+                        <div class="success-icons">
+                            <span class="thumb-icon">👍</span>
+                            <span class="tick-icon">✅</span>
+                            <span class="thumb-icon" style="animation-delay:0.6s">🎯</span>
+                        </div>
+                        <div class="success-text">ACCESS GRANTED!</div>
+                        <div class="success-sub">INITIALIZING NEURAL ENGINE...</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                time.sleep(1.2)
                 st.session_state.logged_in = True
                 st.rerun()
             else:
+                # ❌ WRONG PASSWORD — crying animation
                 st.markdown("""
                     <style>
-                    .stTextInput input { animation: shake 0.4s ease; }
                     @keyframes shake {
-                        0%,100% { transform:translateX(0); }
-                        20% { transform:translateX(-8px); }
-                        40% { transform:translateX(8px); }
-                        60% { transform:translateX(-5px); }
-                        80% { transform:translateX(5px); }
+                        0%,100% { transform: translateX(0) rotate(0deg); }
+                        15% { transform: translateX(-10px) rotate(-2deg); }
+                        30% { transform: translateX(10px) rotate(2deg); }
+                        45% { transform: translateX(-8px) rotate(-1deg); }
+                        60% { transform: translateX(8px) rotate(1deg); }
+                        75% { transform: translateX(-5px); }
+                        90% { transform: translateX(5px); }
+                    }
+                    @keyframes cryBounce {
+                        0%,100% { transform: translateY(0) scale(1); }
+                        30%     { transform: translateY(-8px) scale(1.15); }
+                        60%     { transform: translateY(2px) scale(0.95); }
+                    }
+                    @keyframes tearDrop {
+                        0%   { transform: translateY(0) scaleY(0.5); opacity: 1; }
+                        100% { transform: translateY(30px) scaleY(1.2); opacity: 0; }
+                    }
+                    @keyframes errorGlow {
+                        0%,100% { box-shadow: 0 0 20px rgba(220,53,69,0.5); }
+                        50%     { box-shadow: 0 0 50px rgba(220,53,69,0.9), 0 0 80px rgba(220,53,69,0.4); }
+                    }
+                    @keyframes redFlash {
+                        0%   { background: rgba(220,53,69,0.25); }
+                        50%  { background: rgba(220,53,69,0.05); }
+                        100% { background: rgba(220,53,69,0.15); }
+                    }
+
+                    .stTextInput input {
+                        animation: shake 0.5s ease !important;
+                        border-color: rgba(220,53,69,0.8) !important;
+                    }
+
+                    .error-box {
+                        background: linear-gradient(135deg, rgba(60,10,10,0.95), rgba(40,5,5,0.9));
+                        border: 1px solid rgba(220,53,69,0.55);
+                        border-radius: 16px;
+                        padding: 18px 22px;
+                        text-align: center;
+                        position: relative;
+                        overflow: hidden;
+                        animation: errorGlow 1s ease infinite, redFlash 0.4s ease;
+                    }
+                    .cry-emoji-wrap {
+                        position: relative;
+                        display: inline-block;
+                        font-size: 46px;
+                        animation: cryBounce 0.8s ease infinite;
+                    }
+                    .tear {
+                        position: absolute;
+                        width: 5px; height: 10px;
+                        background: linear-gradient(180deg, rgba(100,180,255,0.9), transparent);
+                        border-radius: 50% 50% 60% 60%;
+                        animation: tearDrop 0.8s ease-in infinite;
+                    }
+                    .tear-1 { left: 28%; top: 65%; animation-delay: 0s; }
+                    .tear-2 { right: 26%; top: 65%; animation-delay: 0.25s; }
+                    .tear-3 { left: 32%; top: 68%; animation-delay: 0.5s; width: 4px; height: 8px; }
+
+                    .error-emojis {
+                        display: flex;
+                        justify-content: center;
+                        gap: 14px;
+                        align-items: center;
+                        margin-bottom: 8px;
+                    }
+                    .side-cry {
+                        font-size: 28px;
+                        animation: cryBounce 0.8s ease 0.15s infinite;
+                    }
+                    .error-text {
+                        font-family: 'Share Tech Mono', monospace;
+                        font-size: 13px;
+                        color: #ff6080;
+                        letter-spacing: 2px;
+                        text-shadow: 0 0 14px rgba(255,60,80,0.7);
+                        margin-top: 6px;
+                    }
+                    .error-sub {
+                        font-size: 11px;
+                        color: rgba(255,100,120,0.5);
+                        letter-spacing: 2px;
+                        margin-top: 4px;
+                    }
+                    .crack-line {
+                        position: absolute;
+                        bottom: 0; left: 50%;
+                        transform: translateX(-50%);
+                        width: 70%; height: 2px;
+                        background: linear-gradient(90deg, transparent, rgba(220,53,69,0.7), transparent);
                     }
                     </style>
+                    <div class="error-box">
+                        <div class="error-emojis">
+                            <span class="side-cry">😢</span>
+                            <div class="cry-emoji-wrap">
+                                😭
+                                <div class="tear tear-1"></div>
+                                <div class="tear tear-2"></div>
+                                <div class="tear tear-3"></div>
+                            </div>
+                            <span class="side-cry">😢</span>
+                        </div>
+                        <div class="error-text">❌ WRONG PASSWORD! ACCESS DENIED!</div>
+                        <div class="error-sub">galat credentials... phir try karo 💔</div>
+                        <div class="crack-line"></div>
+                    </div>
                 """, unsafe_allow_html=True)
-                st.error("❌ Invalid Credentials! Access Denied.")
 
         st.markdown('<div class="version-tag">YOLO AI v2.0 &nbsp;·&nbsp; NEURAL VISION ENGINE</div>',
                     unsafe_allow_html=True)
